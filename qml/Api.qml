@@ -147,7 +147,7 @@ QtObject {
     }
 
     function library(cb) {
-        run("{ mangas(condition: { inLibrary: true }) { nodes { " + mangaCard + " inLibraryAt lastReadChapter { lastReadAt } latestUploadedChapter { uploadDate } source { displayName } } } }",
+        run("{ mangas(condition: { inLibrary: true }) { nodes { " + mangaCard + " inLibraryAt lastReadChapter { lastReadAt } latestUploadedChapter { uploadDate } source { displayName } categories { nodes { id } } } } }",
             {}, cb, d => d.mangas.nodes)
     }
 
@@ -159,6 +159,44 @@ QtObject {
     function libraryUpdateStatus(cb) {
         run("{ libraryUpdateStatus { jobsInfo { isRunning totalJobs finishedJobs } } }", {}, cb,
             d => d.libraryUpdateStatus.jobsInfo)
+    }
+
+    // --- Categories -------------------------------------------------------
+    // Category 0 is Suwayomi's built-in "Default": titles with no category.
+
+    function categories(cb) {
+        run("{ categories(order: [{ by: ORDER }]) { nodes { id name order default } } }", {}, cb,
+            d => d.categories.nodes)
+    }
+
+    function createCategory(name, cb) {
+        run("mutation($n: String!) { createCategory(input: { name: $n }) { category { id name order } } }",
+            { n: name }, cb, d => d.createCategory.category)
+    }
+
+    function renameCategory(id, name, cb) {
+        run("mutation($id: Int!, $n: String!) { updateCategory(input: { id: $id, patch: { name: $n } }) { category { id name } } }",
+            { id: id, n: name }, cb, d => d.updateCategory.category)
+    }
+
+    function deleteCategory(id, cb) {
+        run("mutation($id: Int!) { deleteCategory(input: { categoryId: $id }) { category { id } } }",
+            { id: id }, cb, d => d.deleteCategory)
+    }
+
+    function moveCategory(id, position, cb) {
+        run("mutation($id: Int!, $p: Int!) { updateCategoryOrder(input: { id: $id, position: $p }) { categories { id name order default } } }",
+            { id: id, p: position }, cb, d => d.updateCategoryOrder.categories)
+    }
+
+    function mangaCategories(mangaId, cb) {
+        run("query($id: Int!) { manga(id: $id) { categories { nodes { id } } } }", { id: mangaId }, cb,
+            d => d.manga.categories.nodes.map(c => c.id))
+    }
+
+    function setMangaCategories(mangaId, add, remove, cb) {
+        run("mutation($id: Int!, $a: [Int!], $r: [Int!]) { updateMangaCategories(input: { id: $id, patch: { addToCategories: $a, removeFromCategories: $r } }) { manga { id categories { nodes { id } } } } }",
+            { id: mangaId, a: add, r: remove }, cb, d => d.updateMangaCategories.manga)
     }
 
     // --- Downloads --------------------------------------------------------

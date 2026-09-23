@@ -99,6 +99,10 @@ ApplicationWindow {
         stack.push(sourcePage, { source: source, initialQuery: query || "" })
     }
 
+    function editMangaCategories(manga) {
+        mangaCategories.openFor(manga)
+    }
+
     function openSourceSettings(source) {
         sourceSettings.load(source)
     }
@@ -241,6 +245,7 @@ ApplicationWindow {
     }
 
     SourceSettingsSheet { id: sourceSettings }
+    MangaCategoriesSheet { id: mangaCategories }
 
     Toast { id: toaster }
 }

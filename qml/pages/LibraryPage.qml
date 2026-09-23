@@ -8,6 +8,7 @@ Item {
     id: page
 
     property var all: []
+    property var categories: []       // user categories, without Default
     property bool loading: true
     property bool updating: false
     property string updateText
@@ -19,9 +20,35 @@ Item {
         .sort((a, b) => Number(b.lastReadChapter.lastReadAt) - Number(a.lastReadChapter.lastReadAt))
         .slice(0, 8)
 
+    function categoryIds(m) {
+        return m.categories ? m.categories.nodes.map(c => c.id) : []
+    }
+
+    function inCategory(m, id) {
+        if (id < 0)
+            return true
+        const ids = categoryIds(m)
+        return id === 0 ? ids.length === 0 : ids.indexOf(id) >= 0
+    }
+
+    // Tabs: All, each category, and Default when something is uncategorised.
+    readonly property var tabs: {
+        if (!categories.length)
+            return []
+        const t = [{ id: -1, name: qsTr("All"), count: all.length }]
+        for (const c of categories)
+            t.push({ id: c.id, name: c.name, count: all.filter(m => inCategory(m, c.id)).length })
+        const loose = all.filter(m => inCategory(m, 0)).length
+        if (loose)
+            t.push({ id: 0, name: qsTr("Uncategorised"), count: loose })
+        return t
+    }
+
+    readonly property int activeCategory: tabs.some(t => t.id === Prefs.libraryCategory) ? Prefs.libraryCategory : -1
+
     readonly property var shown: {
         const q = filterText.trim().toLowerCase()
-        let list = all.filter(m => (!q || m.title.toLowerCase().includes(q)) && (!Prefs.libraryUnreadOnly || m.unreadCount > 0))
+        let list = all.filter(m => inCategory(m, activeCategory) && (!q || m.title.toLowerCase().includes(q)) && (!Prefs.libraryUnreadOnly || m.unreadCount > 0))
         const read = m => m.lastReadChapter ? Number(m.lastReadChapter.lastReadAt) : 0
         switch (Prefs.librarySort) {
         case "title": list.sort((a, b) => a.title.localeCompare(b.title)); break
@@ -36,6 +63,7 @@ Item {
     onShownChanged: gridModel.sync(shown)
 
     function reload() {
+        Api.categories((error, list) => { if (!error) categories = list.filter(c => c.id !== 0) })
         Api.library(function (error, list) {
             loading = false
             if (error)
@@ -137,6 +165,16 @@ Item {
                     onTextChanged: page.filterText = text
                 }
 
+                IconButton {
+                    Layout.alignment: Qt.AlignBottom
+                    implicitWidth: 40
+                    implicitHeight: 40
+                    filled: true
+                    glyph: Icons.tag
+                    tip: qsTr("Edit categories")
+                    onClicked: categoriesSheet.open()
+                }
+
                 PillButton {
                     Layout.alignment: Qt.AlignBottom
                     glyph: Icons.refreshCw
@@ -180,11 +218,29 @@ Item {
 
             Item { width: 1; height: 34 }
 
+            Flow {
+                width: parent.width
+                visible: page.tabs.length > 0
+                spacing: 8
+                bottomPadding: 18
+                Repeater {
+                    model: page.tabs
+                    Chip {
+                        required property var modelData
+                        checkable: false
+                        checked: page.activeCategory === modelData.id
+                        implicitHeight: 34
+                        text: modelData.name + "  " + modelData.count
+                        onClicked: Prefs.libraryCategory = modelData.id
+                    }
+                }
+            }
+
             RowLayout {
                 width: parent.width
                 visible: page.all.length > 0
                 Text {
-                    text: qsTr("All titles")
+                    text: page.activeCategory < 0 ? qsTr("All titles") : (page.tabs.find(t => t.id === page.activeCategory) || {}).name
                     font.family: Theme.display
                     font.pixelSize: 20
                     font.weight: Font.Medium
@@ -242,6 +298,8 @@ Item {
         size: 28
         visible: page.loading
     }
+
+    CategoriesSheet { id: categoriesSheet; onChanged: page.reload() }
 
     // Signals out instead of touching page ids: inline components can't see them.
     component ContinueCard: Item {

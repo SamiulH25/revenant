@@ -19,6 +19,7 @@ Settings {
 
     // Library & browsing
     property int coverSize: 180
+    property int libraryCategory: -1          // -1 = all
     property string librarySort: "recent"     // recent | title | unread | added
     property bool libraryUnreadOnly: false
     property bool showNsfw: false

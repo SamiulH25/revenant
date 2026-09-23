@@ -91,6 +91,9 @@ Item {
             manga = Object.assign({}, manga, { inLibrary: next })
             app.libraryRevision++
             app.toast(next ? qsTr("Added to library") : qsTr("Removed from library"))
+            // With categories set up, ask where it goes.
+            if (next)
+                Api.categories((err, list) => { if (!err && list.some(c => c.id !== 0)) app.editMangaCategories(manga) })
         })
     }
 
@@ -304,6 +307,14 @@ Item {
                                 glyph: checked ? Icons.bookMarked : Icons.plus
                                 text: checked ? qsTr("In library") : qsTr("Add to library")
                                 onClicked: page.toggleLibrary()
+                            }
+                            IconButton {
+                                implicitWidth: 46; implicitHeight: 46
+                                visible: !!(page.manga && page.manga.inLibrary)
+                                glyph: Icons.tag
+                                tip: qsTr("Categories")
+                                filled: true
+                                onClicked: app.editMangaCategories(page.manga)
                             }
                             IconButton {
                                 implicitWidth: 46; implicitHeight: 46

@@ -49,6 +49,8 @@ set(QML_FILES
     qml/sheets/FilterItem.qml
     qml/sheets/FilterSheet.qml
     qml/sheets/SourceSettingsSheet.qml
+    qml/sheets/CategoriesSheet.qml
+    qml/sheets/MangaCategoriesSheet.qml
     qml/pages/BootPage.qml
     qml/pages/LibraryPage.qml
     qml/pages/BrowsePage.qml
