@@ -29,7 +29,24 @@ QtObject {
         return manga ? cover(manga.thumbnailUrl, manga.thumbnailUrlLastFetched) : ""
     }
 
+    // Requests made before the server is up (pages load at startup, or during
+    // a restart) wait here and go out once it answers.
+    property var pending: []
+    property Connections serverWatch: Connections {
+        target: ServerManager
+        function onReady() {
+            const queued = api.pending
+            api.pending = []
+            for (const call of queued)
+                api.run.apply(api, call)
+        }
+    }
+
     function run(query, variables, cb, pick) {
+        if (ServerManager.state !== ServerManager.Ready) {
+            pending.push([query, variables, cb, pick])
+            return
+        }
         Gql.request(query, variables || {}, function (error, data) {
             if (!cb)
                 return

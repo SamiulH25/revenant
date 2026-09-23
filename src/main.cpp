@@ -1,6 +1,7 @@
 #include <QFont>
 #include <QFontDatabase>
 #include <QGuiApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQuickStyle>
 
@@ -16,6 +17,7 @@ int main(int argc, char *argv[])
     QGuiApplication::setApplicationDisplayName(QStringLiteral("Revenant"));
     QGuiApplication::setApplicationVersion(QStringLiteral(PROJECT_VERSION));
     QGuiApplication::setDesktopFileName(QStringLiteral("revenant"));
+    QGuiApplication::setWindowIcon(QIcon(QStringLiteral(":/qt/qml/Revenant/assets/icons/revenant.svg")));
     QQuickStyle::setStyle(QStringLiteral("Basic"));
 
     for (const char *font : {"Inter.ttf", "Fraunces.ttf", "Fraunces-Italic.ttf", "lucide.ttf"})

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1A1A24"/>
+      <stop offset="1" stop-color="#08080B"/>
+    </linearGradient>
+    <radialGradient id="aura" cx="0.5" cy="0.47" r="0.5">
+      <stop offset="0" stop-color="#8BE9CF" stop-opacity="0.38"/>
+      <stop offset="0.55" stop-color="#8BE9CF" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#8BE9CF" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ghost" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E4FFF6"/>
+      <stop offset="0.55" stop-color="#8BE9CF"/>
+      <stop offset="1" stop-color="#4FBF9F" stop-opacity="0.85"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#tile)"/>
+  <rect x="8.5" y="8.5" width="239" height="239" rx="55.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.08"/>
+  <circle cx="128" cy="122" r="104" fill="url(#aura)"/>
+  <path fill="url(#ghost)" d="M70 116 A58 58 0 0 1 186 116 L186 196 Q176.3 214 166.7 198 Q157 182 147.3 198 Q137.7 214 128 198 Q118.3 182 108.7 198 Q99 214 89.3 198 Q79.7 182 70 196 Z"/>
+  <ellipse cx="108" cy="124" rx="9.5" ry="14" fill="#0C0C11"/>
+  <ellipse cx="148" cy="124" rx="9.5" ry="14" fill="#0C0C11"/>
+  <ellipse cx="111" cy="119" rx="3" ry="4" fill="#FFFFFF" fill-opacity="0.8"/>
+  <ellipse cx="151" cy="119" rx="3" ry="4" fill="#FFFFFF" fill-opacity="0.8"/>
+</svg>

@@ -11,6 +11,20 @@ from GitHub, checks its SHA-256, starts it on `127.0.0.1:4577`, adds the
 Keiyoushi store, and stops the server again when you quit. If a Suwayomi server
 is already listening on that port, Revenant uses it instead of starting one.
 
+## Features
+
+- **Library** with a Continue reading shelf, categories, unread badges,
+  sorting and filtering, and library updates (manual or scheduled).
+- **Browse** sources by language, search one source or all of them at once,
+  and narrow results with each source's own filters (tags, sort, status...).
+  Configurable sources have a settings sheet (quality, languages, ...).
+- **Extensions** from the Keiyoushi catalog: install, update, remove.
+- **Reader** with Manga (right-to-left), Comic and Webtoon modes, two-page
+  spreads, zoom, preloading, saved progress and chapter-to-chapter flow.
+- **Downloads** for offline reading, with a live queue and per-title storage.
+- **Tracking** with AniList, MyAnimeList, Kitsu, MangaUpdates, Shikimori and
+  Bangumi: link titles, and progress syncs as you finish chapters.
+
 ## Requirements
 
 - Qt 6.5+ (Base, Declarative, ShaderTools, ImageFormats for WebP covers)
@@ -25,7 +39,7 @@ cmake --build build
 ./build/revenant
 ```
 
-`cmake --install build` installs the binary and a desktop entry.
+`cmake --install build` installs the binary, a desktop entry and the icon.
 
 ## Where things live
 
@@ -45,13 +59,14 @@ cmake --build build
 | Home / End | First / last page |
 | ] or N / [ or P | Next / previous chapter |
 | M | Cycle Manga (RTL) → Comic (LTR) → Webtoon |
+| 2 / O | Toggle two-page spreads / shift the pairing by one page |
 | Z, Ctrl+wheel, double-click centre | Zoom |
 | F / F11 | Fullscreen |
 | H / Tab | Toggle the reader controls |
 | Esc / Q / Backspace | Close the reader |
 
 Clicking the left or right third of a page turns it; the middle toggles the
-controls. App-wide: Ctrl+1–4 switch sections, Ctrl+, opens settings,
+controls. App-wide: Ctrl+1–5 switch sections, Ctrl+, opens settings,
 Ctrl+F focuses search, Ctrl+R updates the library, Alt+← / mouse back goes back.
 
 ## Layout
@@ -62,12 +77,14 @@ src/
   graphqlclient.*    GraphQL transport exposed to QML as the Gql singleton
   imagecache.*       image://cover provider: downscaled on-disk covers + cover accent colours
   keyedlistmodel.*   list model that diffs updates by key (keeps scroll position)
+  oauthreceiver.*    loopback listener that completes tracker OAuth sign-in
   devscript.*        REVENANT_SCRIPT automation for screenshots and smoke tests
 qml/
   Api.qml            named GraphQL operations
   Theme.qml Prefs.qml Icons.qml
   components/        design-system pieces (Cover, MangaCard, Segmented, Glow, ...)
-  pages/             Library, Browse, Source, Manga, History, Extensions, Settings
+  pages/             Library, Browse, Source, Manga, History, Downloads, Extensions, Settings
+  sheets/            dialogs and drawers: filters, source settings, categories, tracking
   reader/            ReaderPage, PagedView, WebtoonView, ZoomablePage
 ```
 

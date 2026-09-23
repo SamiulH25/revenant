@@ -4,6 +4,7 @@ Name=Revenant
 GenericName=Manga Reader
 Comment=Read manga from Keiyoushi extension sources
 Exec=revenant
+Icon=revenant
 Terminal=false
 Categories=Graphics;Viewer;Qt;
 Keywords=manga;comic;webtoon;reader;

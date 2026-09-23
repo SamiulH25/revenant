@@ -80,6 +80,7 @@ qt_add_qml_module(revenant
         assets/fonts/Fraunces-Italic.ttf
         assets/fonts/Inter.ttf
         assets/fonts/lucide.ttf
+        assets/icons/revenant.svg
 )
 
 target_include_directories(revenant PRIVATE src)
@@ -91,3 +92,4 @@ target_compile_definitions(revenant PRIVATE PROJECT_VERSION="${PROJECT_VERSION}"
 
 install(TARGETS revenant RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(FILES dist/revenant.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+install(FILES assets/icons/revenant.svg DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/scalable/apps)

@@ -35,6 +35,25 @@ Rectangle {
         width: Math.min(560, parent.width - 80)
         spacing: 14
 
+        Item {
+            Layout.alignment: Qt.AlignHCenter
+            Layout.preferredWidth: 88
+            Layout.preferredHeight: 88
+            Image {
+                width: 88
+                height: 88
+                source: "qrc:/qt/qml/Revenant/assets/icons/revenant.svg"
+                sourceSize: Qt.size(176, 176)
+                SequentialAnimation on y {
+                    // A slow hover, as ghosts do.
+                    loops: Animation.Infinite
+                    running: boot.visible
+                    NumberAnimation { from: 0; to: -6; duration: 1800; easing.type: Easing.InOutSine }
+                    NumberAnimation { from: -6; to: 0; duration: 1800; easing.type: Easing.InOutSine }
+                }
+            }
+        }
+
         Text {
             Layout.alignment: Qt.AlignHCenter
             text: "Revenant"

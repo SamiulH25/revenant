@@ -56,8 +56,6 @@ Item {
         requestTint(full)
         manga = full
         chapters = full.chapters ? full.chapters.nodes : []
-        if (loading)
-            Qt.callLater(list.positionViewAtBeginning) // the header grew; start at the top
         loading = false
     }
 
@@ -176,6 +174,10 @@ Item {
         // header drifts off the top.
         currentIndex: -1
         highlightFollowsCurrentItem: false
+        // The hero header keeps growing as details and text layout arrive;
+        // stay pinned to the top until the reader scrolls on their own.
+        property bool touched: false
+        onMovementStarted: touched = true
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {}
         cacheBuffer: 1000
@@ -184,6 +186,7 @@ Item {
         header: Item {
             width: list.width
             height: heroCol.implicitHeight + 40
+            onHeightChanged: if (!list.touched) Qt.callLater(list.positionViewAtBeginning)
 
             ColumnLayout {
                 id: heroCol

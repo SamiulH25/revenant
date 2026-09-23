@@ -17,7 +17,7 @@ Item {
     readonly property int status: {
         let ready = 0
         for (let i = 0; i < rep.count; ++i) {
-            const img = rep.itemAt(i)
+            const img = rep.itemAt(i) as Image
             if (!img) return Image.Loading
             if (img.status === Image.Error) return Image.Error
             if (img.status === Image.Ready) ++ready
@@ -27,7 +27,7 @@ Item {
     readonly property real progress: {
         let sum = 0
         for (let i = 0; i < rep.count; ++i)
-            sum += rep.itemAt(i) ? rep.itemAt(i).progress : 0
+            sum += rep.itemAt(i) ? (rep.itemAt(i) as Image).progress : 0
         return rep.count ? sum / rep.count : 0
     }
 
@@ -85,7 +85,7 @@ Item {
         readonly property real commonH: {
             let h = 1
             for (let i = 0; i < rep.count; ++i) {
-                const img = rep.itemAt(i)
+                const img = rep.itemAt(i) as Image
                 if (img && img.implicitHeight > h) h = img.implicitHeight
             }
             return h
@@ -93,7 +93,7 @@ Item {
         readonly property real natW: {
             let w = 0
             for (let i = 0; i < rep.count; ++i) {
-                const img = rep.itemAt(i)
+                const img = rep.itemAt(i) as Image
                 w += img && img.implicitHeight > 0 ? img.implicitWidth * commonH / img.implicitHeight : commonH * 0.7
             }
             return Math.max(1, w)
