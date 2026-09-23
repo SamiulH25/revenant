@@ -1,17 +1,39 @@
 import QtQuick
 import Revenant
 
-// One page in the paged reader: fits to the viewport per Prefs.readerFit,
+// One screen in the paged reader: a single page, or a two-page spread laid
+// side by side at a common height. Fits to the viewport per Prefs.readerFit,
 // zooms (pinch here; Ctrl+wheel, Z and double-tap via PagedView) and pans
 // when larger than the view.
 Item {
     id: root
 
-    property url source
+    property var sources: []          // one or two page URLs, in reading order
+    property var indices: []          // their page numbers (0-based)
+    property bool rtl: false          // spreads read right to left
     property int retries: 0
-    readonly property alias status: img.status
-    readonly property alias progress: img.progress
     readonly property bool zoomed: view.zoom > 1.01
+
+    readonly property int status: {
+        let ready = 0
+        for (let i = 0; i < rep.count; ++i) {
+            const img = rep.itemAt(i)
+            if (!img) return Image.Loading
+            if (img.status === Image.Error) return Image.Error
+            if (img.status === Image.Ready) ++ready
+        }
+        return rep.count > 0 && ready === rep.count ? Image.Ready : Image.Loading
+    }
+    readonly property real progress: {
+        let sum = 0
+        for (let i = 0; i < rep.count; ++i)
+            sum += rep.itemAt(i) ? rep.itemAt(i).progress : 0
+        return rep.count ? sum / rep.count : 0
+    }
+
+    // Emitted per page once its size is known; PagedView uses it to keep
+    // landscape spreads on their own.
+    signal measured(int pageIndex, bool wide)
 
     function resetZoom() {
         view.zoom = 1
@@ -59,8 +81,24 @@ Item {
         id: view
 
         property real zoom: 1
-        readonly property real natW: img.implicitWidth > 0 ? img.implicitWidth : 1
-        readonly property real natH: img.implicitHeight > 0 ? img.implicitHeight : 1
+        // Every page is scaled to the tallest one's height, then laid in a row.
+        readonly property real commonH: {
+            let h = 1
+            for (let i = 0; i < rep.count; ++i) {
+                const img = rep.itemAt(i)
+                if (img && img.implicitHeight > h) h = img.implicitHeight
+            }
+            return h
+        }
+        readonly property real natW: {
+            let w = 0
+            for (let i = 0; i < rep.count; ++i) {
+                const img = rep.itemAt(i)
+                w += img && img.implicitHeight > 0 ? img.implicitWidth * commonH / img.implicitHeight : commonH * 0.7
+            }
+            return Math.max(1, w)
+        }
+        readonly property real natH: commonH
         readonly property real baseScale: {
             if (Prefs.readerFit === "width")
                 return width / natW
@@ -68,8 +106,9 @@ Item {
                 return 1 / Screen.devicePixelRatio
             return Math.min(width / natW, height / natH)
         }
-        readonly property real shownW: natW * baseScale * zoom
-        readonly property real shownH: natH * baseScale * zoom
+        readonly property real fitScale: baseScale * zoom
+        readonly property real shownW: natW * fitScale
+        readonly property real shownH: natH * fitScale
 
         anchors.fill: parent
         clip: true
@@ -82,18 +121,32 @@ Item {
 
         Behavior on contentY { enabled: !view.moving; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
-        Image {
-            id: img
+        Row {
             x: (view.contentWidth - view.shownW) / 2
             y: (view.contentHeight - view.shownH) / 2
-            width: view.shownW
-            height: view.shownH
-            source: root.retries ? root.source + "?retry=" + root.retries : root.source
-            asynchronous: true
-            smooth: true
-            mipmap: true
-            opacity: status === Image.Ready ? 1 : 0
-            Behavior on opacity { NumberAnimation { duration: Theme.fast } }
+            layoutDirection: root.rtl ? Qt.RightToLeft : Qt.LeftToRight
+
+            Repeater {
+                id: rep
+                model: root.sources
+                Image {
+                    required property string modelData
+                    required property int index
+                    width: implicitHeight > 0 ? implicitWidth * view.commonH / implicitHeight * view.fitScale : view.shownW / Math.max(1, rep.count)
+                    height: view.shownH
+                    source: root.retries ? modelData + "?retry=" + root.retries : modelData
+                    asynchronous: true
+                    smooth: true
+                    mipmap: true
+                    fillMode: Image.PreserveAspectFit
+                    opacity: status === Image.Ready ? 1 : 0
+                    Behavior on opacity { NumberAnimation { duration: Theme.fast } }
+                    onStatusChanged: {
+                        if (status === Image.Ready && root.indices.length > index)
+                            root.measured(root.indices[index], implicitWidth > implicitHeight * 1.1)
+                    }
+                }
+            }
         }
     }
 

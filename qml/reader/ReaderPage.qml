@@ -188,6 +188,8 @@ Rectangle {
         case Qt.Key_BracketRight: case Qt.Key_N: reader.goNextChapter(); break
         case Qt.Key_BracketLeft: case Qt.Key_P: reader.goPrevChapter(false); break
         case Qt.Key_M: reader.cycleMode(); break
+        case Qt.Key_2: if (reader.paged) Prefs.readerDoublePage = !Prefs.readerDoublePage; break
+        case Qt.Key_O: if (reader.paged && Prefs.readerDoublePage) Prefs.readerSpreadOffset = !Prefs.readerSpreadOffset; break
         case Qt.Key_Z: if (v) v.toggleZoom(); break
         case Qt.Key_F: case Qt.Key_F11: reader.toggleFullscreen(); break
         case Qt.Key_H: case Qt.Key_Tab:
@@ -220,6 +222,8 @@ Rectangle {
         id: pagedComponent
         PagedView {
             pages: reader.pages
+            doublePage: Prefs.readerDoublePage
+            spreadOffset: Prefs.readerSpreadOffset
             rtl: reader.mode === "paged-rtl"
             onCurrentIndexChanged: reader.currentPage = currentIndex
             onPastEnd: reader.onPastEnd()
@@ -407,6 +411,22 @@ Rectangle {
                         { value: "webtoon", label: qsTr("Webtoon"), glyph: Icons.rows3 }
                     ]
                     onActivated: v => reader.setMode(v)
+                }
+                IconButton {
+                    visible: reader.paged
+                    glyph: Icons.bookOpenText
+                    checkable: true
+                    checked: Prefs.readerDoublePage
+                    tip: Prefs.readerDoublePage ? qsTr("Single pages (2)") : qsTr("Two-page spreads (2)")
+                    onClicked: Prefs.readerDoublePage = checked
+                }
+                IconButton {
+                    visible: reader.paged && Prefs.readerDoublePage
+                    glyph: Icons.flipHorizontal
+                    checkable: true
+                    checked: !Prefs.readerSpreadOffset
+                    tip: qsTr("Shift spreads by one page (O)")
+                    onClicked: Prefs.readerSpreadOffset = !Prefs.readerSpreadOffset
                 }
                 IconButton {
                     visible: reader.paged

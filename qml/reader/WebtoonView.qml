@@ -76,10 +76,19 @@ Item {
             required property string modelData
             required property int index
             property int retries: 0
+            readonly property url url: retries ? modelData + "?retry=" + retries : modelData
+
+            // Strips taller than a GPU texture can hold are re-read as
+            // horizontal tiles (sourceClipRect), each within the limit.
+            readonly property int maxTexture: 8192
+            readonly property int tileHeight: 4096
+            property bool tiled: false
+            property size scaled: Qt.size(0, 0)   // decoded size at strip width
+            readonly property bool ready: tiled || img.status === Image.Ready
 
             width: list.width
-            height: img.status === Image.Ready
-                    ? Math.round(root.stripWidth * img.implicitHeight / Math.max(1, img.implicitWidth))
+            height: scaled.height > 0
+                    ? Math.round(root.stripWidth * scaled.height / Math.max(1, scaled.width))
                     : Math.round(root.stripWidth * (root.ratios[index] || 1.45))
 
             Image {
@@ -87,22 +96,49 @@ Item {
                 anchors.horizontalCenter: parent.horizontalCenter
                 width: root.stripWidth
                 height: parent.height
-                source: strip.retries ? strip.modelData + "?retry=" + strip.retries : strip.modelData
+                visible: !strip.tiled
+                source: strip.tiled ? "" : strip.url
                 asynchronous: true
                 smooth: true
                 mipmap: true
-                // Decode at display width: keeps very tall strips under GPU
-                // texture limits and memory in check.
+                // Decode at display width to keep memory in check.
                 sourceSize.width: Math.round(root.stripWidth * Screen.devicePixelRatio)
                 fillMode: Image.Stretch
                 opacity: status === Image.Ready ? 1 : 0
                 Behavior on opacity { NumberAnimation { duration: Theme.fast } }
-                onStatusChanged: if (status === Image.Ready) root.ratios[strip.index] = implicitHeight / Math.max(1, implicitWidth)
+                onStatusChanged: {
+                    if (status !== Image.Ready)
+                        return
+                    strip.scaled = Qt.size(implicitWidth, implicitHeight)
+                    root.ratios[strip.index] = implicitHeight / Math.max(1, implicitWidth)
+                    if (implicitHeight > strip.maxTexture)
+                        strip.tiled = true
+                }
+            }
+
+            Column {
+                visible: strip.tiled
+                anchors.horizontalCenter: parent.horizontalCenter
+                Repeater {
+                    model: strip.tiled ? Math.ceil(strip.scaled.height / strip.tileHeight) : 0
+                    Image {
+                        required property int index
+                        readonly property real clipH: Math.min(strip.tileHeight, strip.scaled.height - index * strip.tileHeight)
+                        width: root.stripWidth
+                        height: clipH * root.stripWidth / Math.max(1, strip.scaled.width)
+                        source: strip.url
+                        asynchronous: true
+                        smooth: true
+                        sourceSize.width: strip.scaled.width
+                        sourceClipRect: Qt.rect(0, index * strip.tileHeight, strip.scaled.width, clipH)
+                        fillMode: Image.Stretch
+                    }
+                }
             }
 
             Column {
                 anchors.centerIn: parent
-                visible: img.status !== Image.Ready
+                visible: !strip.ready
                 spacing: 12
                 Text {
                     anchors.horizontalCenter: parent.horizontalCenter

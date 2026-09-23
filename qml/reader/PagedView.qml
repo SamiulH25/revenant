@@ -1,33 +1,96 @@
 import QtQuick
 import Revenant
 
-// Horizontal one-page-at-a-time reader. rtl flips direction for manga.
+// Horizontal one-screen-at-a-time reader: single pages or two-page spreads.
+// rtl flips direction for manga. currentIndex and goTo() speak in page
+// numbers; the list itself holds spreads (arrays of page indices).
 Item {
     id: root
 
     property var pages: []
     property bool rtl: true
+    property bool doublePage: false
+    property bool spreadOffset: false   // first page (cover) on its own
     property int currentIndex: 0
     readonly property ZoomablePage currentPage: list.currentItem as ZoomablePage
+
+    // Landscape pages seen so far; they always get a screen to themselves.
+    property var wide: ({})
+    readonly property var spreads: {
+        const n = pages.length
+        const out = []
+        let i = 0
+        if (!doublePage) {
+            for (; i < n; ++i)
+                out.push([i])
+            return out
+        }
+        if (spreadOffset && n > 0) {
+            out.push([0])
+            i = 1
+        }
+        while (i < n) {
+            if (wide[i] || i + 1 >= n || wide[i + 1]) {
+                out.push([i])
+                i += 1
+            } else {
+                out.push([i, i + 1])
+                i += 2
+            }
+        }
+        return out
+    }
+    property bool relayout: false
 
     signal pastEnd()
     signal pastStart()
     signal toggleChrome()
 
+    function spreadOf(page) {
+        const i = spreads.findIndex(s => s.indexOf(page) >= 0)
+        return i < 0 ? 0 : i
+    }
+
     function goTo(index, animate) {
         if (index < 0 || index >= pages.length)
             return
         list.highlightMoveDuration = animate === false ? 0 : 240
-        list.currentIndex = index
+        list.currentIndex = spreadOf(index)
     }
     function next() {
-        if (currentIndex >= pages.length - 1) pastEnd()
-        else goTo(currentIndex + 1)
+        if (list.currentIndex >= spreads.length - 1) pastEnd()
+        else {
+            list.highlightMoveDuration = 240
+            list.currentIndex += 1
+        }
     }
     function prev() {
-        if (currentIndex <= 0) pastStart()
-        else goTo(currentIndex - 1)
+        if (list.currentIndex <= 0) pastStart()
+        else {
+            list.highlightMoveDuration = 240
+            list.currentIndex -= 1
+        }
     }
+
+    function noteWide(page, isWide) {
+        if (!doublePage || !isWide || wide[page])
+            return
+        const w = Object.assign({}, wide)
+        w[page] = true
+        wide = w
+    }
+
+    // The model is swapped by hand so the reader stays on the same page when
+    // the pairing changes (toggling spreads, or a wide page turning up).
+    onSpreadsChanged: {
+        const page = currentIndex
+        relayout = true
+        list.model = spreads
+        list.highlightMoveDuration = 0
+        list.currentIndex = spreadOf(page)
+        relayout = false
+    }
+    onPagesChanged: wide = {}
     // Keyboard left/right follow the reading direction on screen.
     function stepLeft() { rtl ? next() : prev() }
     function stepRight() { rtl ? prev() : next() }
@@ -55,30 +118,37 @@ Item {
         boundsBehavior: Flickable.StopAtBounds
         // Keep neighbours decoded so turning is instant.
         cacheBuffer: Math.max(0, width * Prefs.preloadPages)
-        model: root.pages
         reuseItems: false
+        Component.onCompleted: model = root.spreads
         interactive: !(root.currentPage && root.currentPage.zoomed)
 
         onCurrentIndexChanged: {
-            root.currentIndex = currentIndex
+            if (root.relayout || currentIndex < 0 || currentIndex >= root.spreads.length)
+                return
+            // Progress counts the last page on screen.
+            const spread = root.spreads[currentIndex]
+            root.currentIndex = spread[spread.length - 1]
             if (root.currentPage)
                 root.currentPage.scrollToEdge(false)
         }
 
         delegate: ZoomablePage {
             id: pageItem
-            required property string modelData
+            required property var modelData
             required property int index
             width: list.width
             height: list.height
-            source: modelData
+            indices: modelData
+            sources: modelData.map(i => root.pages[i])
+            rtl: root.rtl
+            onMeasured: (page, isWide) => root.noteWide(page, isWide)
 
             ListView.onIsCurrentItemChanged: if (!ListView.isCurrentItem) resetZoom()
 
             PageStatus {
                 anchors.centerIn: parent
                 page: pageItem
-                number: pageItem.index + 1
+                label: pageItem.modelData.map(i => i + 1).join("–")
             }
         }
     }
@@ -135,12 +205,12 @@ Item {
 
     component PageStatus: Column {
         property ZoomablePage page
-        property int number
+        property string label
         visible: page.status !== Image.Ready
         spacing: 12
         Text {
             anchors.horizontalCenter: parent.horizontalCenter
-            text: parent.number
+            text: parent.label
             font.family: Theme.display
             font.pixelSize: 64
             font.italic: true

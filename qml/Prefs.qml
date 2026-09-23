@@ -10,6 +10,8 @@ Settings {
     // Reader
     property string readerMode: "paged-rtl"   // paged-rtl | paged-ltr | webtoon
     property string readerFit: "height"       // height | width | original (paged modes)
+    property bool readerDoublePage: false     // two-page spreads in paged modes
+    property bool readerSpreadOffset: true    // cover page alone before the first spread
     property int webtoonWidth: 820            // max strip width in px
     property int webtoonGap: 0
     property string readerBackground: "black" // black | gray | white

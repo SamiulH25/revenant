@@ -186,6 +186,16 @@ Item {
                     }
                 }
                 Field {
+                    label: qsTr("Two-page spreads")
+                    hint: qsTr("Show facing pages side by side in paged modes (toggle with 2 in the reader). Wide pages stay on their own.")
+                    Toggle { checked: Prefs.readerDoublePage; onToggled: Prefs.readerDoublePage = checked }
+                }
+                Field {
+                    label: qsTr("Cover page on its own")
+                    hint: qsTr("Keeps spreads aligned for books that start with a single cover (O in the reader).")
+                    Toggle { enabled: Prefs.readerDoublePage; checked: Prefs.readerSpreadOffset; onToggled: Prefs.readerSpreadOffset = checked }
+                }
+                Field {
                     label: qsTr("Webtoon width")
                     hint: qsTr("Maximum strip width. %1 px").arg(Prefs.webtoonWidth)
                     Range { from: 480; to: 1600; stepSize: 20; suffix: " px"; value: Prefs.webtoonWidth; onMoved: Prefs.webtoonWidth = value }
