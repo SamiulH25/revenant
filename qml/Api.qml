@@ -86,10 +86,32 @@ QtObject {
             {}, cb, d => d.sources.nodes.filter(s => s.id !== "0"))
     }
 
-    // type: "POPULAR" | "LATEST" | "SEARCH"
-    function browse(sourceId, type, page, query, cb) {
-        run("mutation($s: LongString!, $t: FetchSourceMangaType!, $p: Int!, $q: String) { fetchSourceManga(input: { source: $s, type: $t, page: $p, query: $q }) { hasNextPage mangas { " + mangaCard + " } } }",
-            { s: sourceId, t: type, p: page, q: query || null }, cb, d => d.fetchSourceManga)
+    // type: "POPULAR" | "LATEST" | "SEARCH". filters: [FilterChangeInput]
+    // (see FilterSheet), only honoured for SEARCH.
+    function browse(sourceId, type, page, query, cb, filters) {
+        run("mutation($s: LongString!, $t: FetchSourceMangaType!, $p: Int!, $q: String, $f: [FilterChangeInput!]) { fetchSourceManga(input: { source: $s, type: $t, page: $p, query: $q, filters: $f }) { hasNextPage mangas { " + mangaCard + " } } }",
+            { s: sourceId, t: type, p: page, q: query || null, f: filters && filters.length ? filters : null }, cb, d => d.fetchSourceManga)
+    }
+
+    // Filter and Preference are unions; __typename says which fields apply.
+    // Same-named fields differ in type across members, hence the aliases.
+    readonly property string filterFields: "__typename ... on HeaderFilter { name } ... on SeparatorFilter { name } ... on CheckBoxFilter { name checkDefault: default } ... on TriStateFilter { name triDefault: default } ... on TextFilter { name textDefault: default } ... on SelectFilter { name selectDefault: default values } ... on SortFilter { name values sortDefault: default { index ascending } }"
+    readonly property string preferenceFields: "__typename ... on CheckBoxPreference { key title summary visible enabled boolValue: currentValue boolDefault: default } ... on SwitchPreference { key title summary visible enabled boolValue: currentValue boolDefault: default } ... on ListPreference { key title summary visible enabled textValue: currentValue textDefault: default entries entryValues } ... on MultiSelectListPreference { key title summary visible enabled listValue: currentValue listDefault: default entries entryValues } ... on EditTextPreference { key title summary visible enabled textValue: currentValue textDefault: default dialogTitle dialogMessage }"
+
+    function sourceFilters(sourceId, cb) {
+        run("query($id: LongString!) { source(id: $id) { filters { " + filterFields + " ... on GroupFilter { name filters { " + filterFields + " } } } } }",
+            { id: sourceId }, cb, d => d.source.filters)
+    }
+
+    function sourcePreferences(sourceId, cb) {
+        run("query($id: LongString!) { source(id: $id) { preferences { " + preferenceFields + " } } }",
+            { id: sourceId }, cb, d => d.source.preferences)
+    }
+
+    // change: { position, switchState | checkBoxState | listState | multiSelectState | editTextState }
+    function setSourcePreference(sourceId, change, cb) {
+        run("mutation($s: LongString!, $c: SourcePreferenceChangeInput!) { updateSourcePreference(input: { source: $s, change: $c }) { preferences { " + preferenceFields + " } } }",
+            { s: sourceId, c: change }, cb, d => d.updateSourcePreference.preferences)
     }
 
     // --- Manga ------------------------------------------------------------

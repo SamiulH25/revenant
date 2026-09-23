@@ -21,6 +21,8 @@ Item {
     property string error
     property int token: 0
     property var seenIds: ({})
+    property var filterChanges: []
+    readonly property bool searching: mode === "SEARCH"
 
     function reset() {
         items.clear()
@@ -34,11 +36,11 @@ Item {
     }
 
     function loadMore() {
-        if (loading || !hasNext || (mode === "SEARCH" && !query))
+        if (loading || !hasNext || (searching && !query && filterChanges.length === 0))
             return
         loading = true
         const mine = token
-        Api.browse(source.id, mode, nextPage, mode === "SEARCH" ? query : "", function (err, result) {
+        Api.browse(source.id, mode, nextPage, searching ? query : "", function (err, result) {
             if (mine !== token)
                 return
             loading = false
@@ -52,10 +54,19 @@ Item {
             items.append(fresh)
             hasNext = result.hasNextPage && result.mangas.length > 0
             nextPage += 1
-        })
+        }, searching ? filterChanges : [])
     }
 
     Component.onCompleted: reset()
+
+    FilterSheet {
+        id: filterSheet
+        onApplied: changes => {
+            page.filterChanges = changes
+            page.mode = changes.length || page.query ? "SEARCH" : "POPULAR"
+            page.reset()
+        }
+    }
     Shortcut { sequence: "Ctrl+F"; onActivated: page.searchBox.forceActiveFocus() }
 
     GridView {
@@ -140,6 +151,22 @@ Item {
                     }
                 }
                 Item { Layout.fillWidth: true }
+                PillButton {
+                    glyph: Icons.slidersHorizontal
+                    checked: page.filterChanges.length > 0
+                    text: page.filterChanges.length ? qsTr("Filters · %1").arg(page.filterChanges.length) : qsTr("Filters")
+                    onClicked: {
+                        filterSheet.load(page.source.id)
+                        filterSheet.open()
+                    }
+                }
+                IconButton {
+                    visible: page.source.isConfigurable
+                    glyph: Icons.settings
+                    tip: qsTr("Source settings")
+                    filled: true
+                    onClicked: app.openSourceSettings(page.source)
+                }
                 SearchField {
                     id: search
                     Component.onCompleted: page.searchBox = this
@@ -148,7 +175,7 @@ Item {
                     placeholderText: qsTr("Search %1").arg(page.source.name)
                     onAccepted: {
                         page.query = text.trim()
-                        page.mode = page.query ? "SEARCH" : "POPULAR"
+                        page.mode = page.query || page.filterChanges.length ? "SEARCH" : "POPULAR"
                         page.reset()
                     }
                 }
@@ -199,7 +226,7 @@ Item {
         visible: !page.loading && items.count === 0
         glyph: page.error ? Icons.circleAlert : Icons.search
         title: page.error ? qsTr("The source didn't answer")
-             : page.mode === "SEARCH" && !page.query ? qsTr("Search %1").arg(page.source.name)
+             : page.searching && !page.query && !page.filterChanges.length ? qsTr("Search %1").arg(page.source.name)
              : qsTr("Nothing here")
         body: page.error ? page.error : ""
         PillButton {

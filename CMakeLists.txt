@@ -41,6 +41,13 @@ set(QML_FILES
     qml/components/Ambient.qml
     qml/components/Segmented.qml
     qml/components/Glow.qml
+    qml/components/Dropdown.qml
+    qml/components/TextBox.qml
+    qml/components/Toggle.qml
+    qml/components/Sheet.qml
+    qml/sheets/FilterItem.qml
+    qml/sheets/FilterSheet.qml
+    qml/sheets/SourceSettingsSheet.qml
     qml/pages/BootPage.qml
     qml/pages/LibraryPage.qml
     qml/pages/BrowsePage.qml

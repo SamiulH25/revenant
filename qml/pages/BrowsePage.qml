@@ -205,6 +205,14 @@ Item {
                             }
                         }
                         IconButton {
+                            visible: tile.modelData.isConfigurable
+                            glyph: Icons.settings
+                            tip: qsTr("Source settings")
+                            iconSize: 16
+                            tint: Theme.textDim
+                            onClicked: app.openSourceSettings(tile.modelData)
+                        }
+                        IconButton {
                             visible: tile.modelData.supportsLatest
                             glyph: Icons.clock
                             tip: qsTr("Latest updates")

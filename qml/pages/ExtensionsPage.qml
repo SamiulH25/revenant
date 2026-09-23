@@ -145,64 +145,12 @@ Item {
                 ]
                 onActivated: v => page.view = v
             }
-            ComboBox {
-                id: langBox
+            Dropdown {
                 Layout.preferredWidth: 180
-                implicitHeight: 36
                 model: [{ code: "", label: qsTr("All languages") }].concat(page.langs.map(c => ({ code: c, label: page.langName(c) })))
                 textRole: "label"
                 valueRole: "code"
                 onActivated: page.langFilter = currentValue
-                font.pixelSize: 13
-
-                background: Rectangle {
-                    radius: height / 2
-                    color: langBox.hovered ? Theme.raised : Theme.surface
-                    border.color: Theme.stroke
-                }
-                contentItem: Text {
-                    leftPadding: 16
-                    text: langBox.displayText
-                    font: langBox.font
-                    color: Theme.text
-                    verticalAlignment: Text.AlignVCenter
-                    elide: Text.ElideRight
-                }
-                indicator: Icon {
-                    x: langBox.width - width - 12
-                    anchors.verticalCenter: parent.verticalCenter
-                    glyph: Icons.chevronDown
-                    size: 14
-                    color: Theme.textDim
-                }
-                popup: Popup {
-                    y: langBox.height + 6
-                    width: langBox.width
-                    height: Math.min(contentItem.implicitHeight + 12, 420)
-                    padding: 6
-                    background: Rectangle { radius: Theme.radiusM; color: Theme.overlay; border.color: Theme.strokeStrong }
-                    contentItem: ListView {
-                        clip: true
-                        implicitHeight: contentHeight
-                        model: langBox.delegateModel
-                        currentIndex: langBox.highlightedIndex
-                        ScrollBar.vertical: ScrollBar {}
-                    }
-                }
-                delegate: ItemDelegate {
-                    required property var modelData
-                    required property int index
-                    width: langBox.width - 12
-                    height: 34
-                    highlighted: langBox.highlightedIndex === index
-                    background: Rectangle { radius: Theme.radiusS; color: parent.highlighted ? Theme.hover : "transparent" }
-                    contentItem: Text {
-                        text: modelData.label
-                        font.pixelSize: 13
-                        color: langBox.currentIndex === index ? Theme.accent : Theme.text
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
             }
             Item { Layout.fillWidth: true }
             SearchField {

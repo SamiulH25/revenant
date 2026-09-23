@@ -20,6 +20,8 @@ ApplicationWindow {
     // Bumped whenever library membership or read state changes, so pages that
     // show that data can refresh when they come back into view.
     property int libraryRevision: 0
+    // Scratch slot for REVENANT_SCRIPT automation.
+    property var dev
 
     function toast(message, kind) { toaster.show(message, kind) }
 
@@ -42,6 +44,10 @@ ApplicationWindow {
 
     function openSource(source, query) {
         stack.push(sourcePage, { source: source, initialQuery: query || "" })
+    }
+
+    function openSourceSettings(source) {
+        sourceSettings.load(source)
     }
 
     function openManga(manga) {
@@ -177,6 +183,8 @@ ApplicationWindow {
         opacity: app.serverReady ? 0 : 1
         Behavior on opacity { NumberAnimation { duration: Theme.slow; easing.type: Easing.OutCubic } }
     }
+
+    SourceSettingsSheet { id: sourceSettings }
 
     Toast { id: toaster }
 }
