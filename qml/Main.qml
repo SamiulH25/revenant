@@ -25,6 +25,58 @@ ApplicationWindow {
 
     function toast(message, kind) { toaster.show(message, kind) }
 
+    // --- Download queue, shared by every page -----------------------------
+    // chapterId -> queue entry, for chapter rows to show progress.
+    property var downloadQueue: []
+    property var downloadMap: ({})
+    property bool downloaderRunning: false
+    readonly property int activeDownloads: downloadQueue.length
+    // mangaId, chapterIds: chapters that left the queue (finished or removed).
+    signal downloadsSettled(int mangaId, var chapterIds)
+
+    function applyDownloadStatus(status) {
+        const before = downloadMap
+        const next = {}
+        for (const d of status.queue)
+            next[d.chapter.id] = d
+        const gone = {}
+        for (const id in before) {
+            if (!next[id]) {
+                const m = before[id].chapter.mangaId
+                ;(gone[m] = gone[m] || []).push(Number(id))
+            }
+        }
+        downloadQueue = status.queue
+        downloadMap = next
+        downloaderRunning = status.state === "STARTED"
+        for (const m in gone)
+            downloadsSettled(Number(m), gone[m])
+    }
+
+    function refreshDownloads() {
+        Api.downloadStatus((error, status) => { if (!error) applyDownloadStatus(status) })
+    }
+
+    function download(chapterIds) {
+        if (!chapterIds.length)
+            return
+        Api.enqueueDownloads(chapterIds, (error, status) => {
+            if (error)
+                return toast(error, "error")
+            applyDownloadStatus(status)
+            toast(Api.count(chapterIds.length, qsTr("Queued %1 chapter"), qsTr("Queued %1 chapters")))
+        })
+    }
+
+    Timer {
+        // Fast while something is downloading, lazy otherwise.
+        interval: app.activeDownloads ? 1000 : 5000
+        running: app.serverReady
+        repeat: true
+        triggeredOnStart: true
+        onTriggered: app.refreshDownloads()
+    }
+
     function goTab(key) {
         if (tab === key && stack.depth === 1)
             return
@@ -37,6 +89,7 @@ ApplicationWindow {
         case "browse": return browsePage
         case "history": return historyPage
         case "extensions": return extensionsPage
+        case "downloads": return downloadsPage
         case "settings": return settingsPage
         default: return libraryPage
         }
@@ -93,7 +146,8 @@ ApplicationWindow {
     Shortcut { sequence: "Ctrl+1"; onActivated: app.goTab("library") }
     Shortcut { sequence: "Ctrl+2"; onActivated: app.goTab("browse") }
     Shortcut { sequence: "Ctrl+3"; onActivated: app.goTab("history") }
-    Shortcut { sequence: "Ctrl+4"; onActivated: app.goTab("extensions") }
+    Shortcut { sequence: "Ctrl+4"; onActivated: app.goTab("downloads") }
+    Shortcut { sequence: "Ctrl+5"; onActivated: app.goTab("extensions") }
     Shortcut { sequence: "Ctrl+,"; onActivated: app.goTab("settings") }
     Shortcut { sequence: "F11"; onActivated: app.visibility = app.visibility === Window.FullScreen ? Window.Windowed : Window.FullScreen }
 
@@ -114,6 +168,7 @@ ApplicationWindow {
         NavRail {
             Layout.fillHeight: true
             current: app.tab
+            downloadBadge: app.activeDownloads
             onNavigate: key => app.goTab(key)
         }
 
@@ -159,6 +214,7 @@ ApplicationWindow {
     Component { id: historyPage; HistoryPage {} }
     Component { id: extensionsPage; ExtensionsPage {} }
     Component { id: settingsPage; SettingsPage {} }
+    Component { id: downloadsPage; DownloadsPage {} }
     Component { id: sourcePage; SourcePage {} }
     Component { id: mangaPage; MangaPage {} }
 

@@ -111,6 +111,20 @@ Item {
             setRead(ids, true)
     }
 
+    // Unread chapters oldest first, skipping ones on disk or in the queue.
+    function unreadToFetch() {
+        return chapters.filter(c => !c.isRead && !c.isDownloaded && !app.downloadMap[c.id]).reverse()
+    }
+
+    function deleteDownloads(ids) {
+        Api.deleteDownloads(ids, function (error) {
+            if (error)
+                return app.toast(error, "error")
+            const set = new Set(ids)
+            chapters = chapters.map(c => set.has(c.id) ? Object.assign({}, c, { isDownloaded: false }) : c)
+        })
+    }
+
     function read(chapter) {
         app.openReader(manga, chapter, chapters)
     }
@@ -127,12 +141,17 @@ Item {
         requestTint(seed)
         load()
     }
+    function quietReload() {
+        Api.manga(page.mangaId, (error, full) => { if (!error) page.apply(full) })
+    }
+
+    Timer { id: settleReload; interval: 600; onTriggered: page.quietReload() }
+
     Connections {
         target: app
-        function onLibraryRevisionChanged() {
-            // Returning from the reader: pick up read progress quietly.
-            Api.manga(page.mangaId, (error, full) => { if (!error) page.apply(full) })
-        }
+        // Returning from the reader: pick up read progress quietly.
+        function onLibraryRevisionChanged() { page.quietReload() }
+        function onDownloadsSettled(mangaId) { if (mangaId === page.mangaId) settleReload.restart() }
     }
 
     Ambient {
@@ -148,6 +167,10 @@ Item {
         id: list
         anchors.fill: parent
         model: chapterModel
+        // No current item: otherwise inserts keep row 0 pinned and the
+        // header drifts off the top.
+        currentIndex: -1
+        highlightFollowsCurrentItem: false
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {}
         cacheBuffer: 1000
@@ -368,6 +391,27 @@ Item {
                         onClicked: page.newestFirst = !page.newestFirst
                     }
                     IconButton {
+                        glyph: Icons.download
+                        tip: qsTr("Download")
+                        onClicked: downloadMenu.popup()
+                        PopMenu {
+                            id: downloadMenu
+                            Action { text: qsTr("Next 5 unread"); onTriggered: app.download(page.unreadToFetch().slice(0, 5).map(c => c.id)) }
+                            Action { text: qsTr("Next 10 unread"); onTriggered: app.download(page.unreadToFetch().slice(0, 10).map(c => c.id)) }
+                            Action { text: qsTr("All unread"); onTriggered: app.download(page.unreadToFetch().map(c => c.id)) }
+                            Action {
+                                text: qsTr("All chapters")
+                                onTriggered: app.download(page.chapters.filter(c => !c.isDownloaded && !app.downloadMap[c.id]).reverse().map(c => c.id))
+                            }
+                            MenuSeparator { contentItem: Rectangle { implicitHeight: 1; color: Theme.stroke } }
+                            Action {
+                                text: qsTr("Delete downloaded chapters")
+                                enabled: page.chapters.some(c => c.isDownloaded)
+                                onTriggered: page.deleteDownloads(page.chapters.filter(c => c.isDownloaded).map(c => c.id))
+                            }
+                        }
+                    }
+                    IconButton {
                         glyph: Icons.bookOpenCheck
                         tip: qsTr("Mark all as read")
                         enabled: page.readCount < page.chapters.length
@@ -500,6 +544,30 @@ Item {
                     color: page.tint
                 }
 
+                // Download state: progress while queued, a mark once on disk.
+                Row {
+                    readonly property var queued: app.downloadMap[row.ch.id]
+                    visible: !!queued
+                    spacing: 6
+                    Spinner { size: 14; color: page.tint; anchors.verticalCenter: parent.verticalCenter; running: !!parent.queued && parent.queued.state === "DOWNLOADING" }
+                    Text {
+                        anchors.verticalCenter: parent.verticalCenter
+                        text: parent.queued ? (parent.queued.state === "DOWNLOADING" ? Math.round(parent.queued.progress * 100) + "%" : qsTr("Queued")) : ""
+                        font.pixelSize: 11
+                        font.features: { "tnum": 1 }
+                        color: Theme.textDim
+                    }
+                }
+                IconButton {
+                    readonly property bool onDisk: row.ch.isDownloaded
+                    visible: !app.downloadMap[row.ch.id] && (onDisk || rowMouse.containsMouse || hovered)
+                    glyph: onDisk ? (hovered ? Icons.trash2 : Icons.circleCheck) : Icons.download
+                    tip: onDisk ? qsTr("Delete download") : qsTr("Download")
+                    iconSize: 16
+                    tint: onDisk ? page.tint : Theme.textDim
+                    onClicked: onDisk ? page.deleteDownloads([row.ch.id]) : app.download([row.ch.id])
+                }
+
                 IconButton {
                     opacity: rowMouse.containsMouse || hovered ? 1 : 0
                     glyph: row.ch.isRead ? Icons.eyeOff : Icons.eye
@@ -517,22 +585,20 @@ Item {
                 }
             }
 
-            Menu {
+            PopMenu {
                 id: menu
-                background: Rectangle { implicitWidth: 240; radius: Theme.radiusM; color: Theme.overlay; border.color: Theme.strokeStrong }
-                delegate: MenuItem {
-                    id: mi
-                    implicitHeight: 36
-                    background: Rectangle { radius: Theme.radiusS; color: mi.highlighted ? Theme.hover : "transparent" }
-                    contentItem: Text { leftPadding: 6; text: mi.text; color: Theme.text; font.pixelSize: 13; verticalAlignment: Text.AlignVCenter }
-                }
-                MenuItem { text: row.ch.isRead ? qsTr("Mark as unread") : qsTr("Mark as read"); onTriggered: page.setRead([row.ch.id], !row.ch.isRead) }
-                MenuItem { text: qsTr("Mark previous as read"); onTriggered: page.markPreviousRead(row.ch) }
-                MenuItem {
+                Action { text: row.ch.isRead ? qsTr("Mark as unread") : qsTr("Mark as read"); onTriggered: page.setRead([row.ch.id], !row.ch.isRead) }
+                Action { text: qsTr("Mark previous as read"); onTriggered: page.markPreviousRead(row.ch) }
+                Action {
                     text: row.ch.isBookmarked ? qsTr("Remove bookmark") : qsTr("Bookmark")
                     onTriggered: Api.updateChapters([row.ch.id], { isBookmarked: !row.ch.isBookmarked }, error => {
                         if (!error) page.chapters = page.chapters.map(c => c.id === row.ch.id ? Object.assign({}, c, { isBookmarked: !c.isBookmarked }) : c)
                     })
+                }
+                Action {
+                    text: row.ch.isDownloaded ? qsTr("Delete download") : qsTr("Download")
+                    enabled: !app.downloadMap[row.ch.id]
+                    onTriggered: row.ch.isDownloaded ? page.deleteDownloads([row.ch.id]) : app.download([row.ch.id])
                 }
             }
         }

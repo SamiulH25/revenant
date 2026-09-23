@@ -8,12 +8,14 @@ Rectangle {
     id: rail
 
     property string current: "library"
+    property int downloadBadge: 0
     signal navigate(string key)
 
     readonly property var items: [
         { key: "library", label: qsTr("Library"), glyph: Icons.libraryBig },
         { key: "browse", label: qsTr("Browse"), glyph: Icons.compass },
         { key: "history", label: qsTr("History"), glyph: Icons.history },
+        { key: "downloads", label: qsTr("Downloads"), glyph: Icons.download },
         { key: "extensions", label: qsTr("Extensions"), glyph: Icons.puzzle }
     ]
 
@@ -63,6 +65,7 @@ Rectangle {
         property string key
         property string glyph
         property bool active
+        property int badge: 0
         height: 58
         hoverEnabled: true
         focusPolicy: Qt.NoFocus
@@ -82,6 +85,23 @@ Rectangle {
                 glyph: item.glyph
                 size: 20
                 color: item.active ? Theme.accent : item.hovered ? Theme.text : Theme.textDim
+            }
+            Rectangle {
+                visible: item.badge > 0
+                x: parent.width / 2 + 4
+                y: 6
+                height: 16
+                width: Math.max(16, badgeText.implicitWidth + 8)
+                radius: 8
+                color: Theme.accent
+                Text {
+                    id: badgeText
+                    anchors.centerIn: parent
+                    text: item.badge > 99 ? "99+" : item.badge
+                    font.pixelSize: 10
+                    font.weight: Font.Bold
+                    color: Theme.accentInk
+                }
             }
             Text {
                 anchors.horizontalCenter: parent.horizontalCenter
@@ -111,6 +131,7 @@ Rectangle {
                 glyph: modelData.glyph
                 text: modelData.label
                 active: rail.current === key
+                badge: key === "downloads" ? rail.downloadBadge : 0
                 onClicked: rail.navigate(key)
             }
         }

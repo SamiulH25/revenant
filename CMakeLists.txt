@@ -45,6 +45,7 @@ set(QML_FILES
     qml/components/TextBox.qml
     qml/components/Toggle.qml
     qml/components/Sheet.qml
+    qml/components/PopMenu.qml
     qml/sheets/FilterItem.qml
     qml/sheets/FilterSheet.qml
     qml/sheets/SourceSettingsSheet.qml
@@ -56,6 +57,7 @@ set(QML_FILES
     qml/pages/MangaPage.qml
     qml/pages/HistoryPage.qml
     qml/pages/SettingsPage.qml
+    qml/pages/DownloadsPage.qml
     qml/reader/ReaderPage.qml
     qml/reader/PagedView.qml
     qml/reader/WebtoonView.qml

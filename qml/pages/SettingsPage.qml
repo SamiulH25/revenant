@@ -7,6 +7,24 @@ Item {
     id: page
 
     property real cacheBytes: ImageCache.diskUsage()
+    // Settings stored by the extension server (downloads, library updates).
+    property var server: ({})
+
+    function setServer(patch) {
+        Api.setServerSettings(patch, function (error, settings) {
+            if (error)
+                return app.toast(error, "error")
+            page.server = settings
+        })
+    }
+
+    Component.onCompleted: Api.serverSettings((error, settings) => { if (!error) page.server = settings })
+
+    readonly property var updateIntervals: [
+        { value: 0, label: qsTr("Off") }, { value: 6, label: qsTr("Every 6 hours") },
+        { value: 12, label: qsTr("Every 12 hours") }, { value: 24, label: qsTr("Daily") },
+        { value: 48, label: qsTr("Every 2 days") }, { value: 168, label: qsTr("Weekly") }
+    ]
 
     function formatBytes(n) {
         if (n < 1024 * 1024) return qsTr("%1 KB").arg(Math.round(n / 1024))
@@ -200,6 +218,59 @@ Item {
                     last: true
                     label: qsTr("Show 18+ sources and extensions")
                     Toggle { checked: Prefs.showNsfw; onToggled: Prefs.showNsfw = checked }
+                }
+            }
+
+            Group {
+                title: qsTr("Downloads")
+                Field {
+                    label: qsTr("Save as CBZ archives")
+                    hint: qsTr("One file per chapter instead of a folder of images.")
+                    Toggle { checked: !!page.server.downloadAsCbz; onToggled: page.setServer({ downloadAsCbz: checked }) }
+                }
+                Field {
+                    label: qsTr("Download new chapters automatically")
+                    hint: qsTr("After a library update, for titles in your library.")
+                    Toggle { checked: !!page.server.autoDownloadNewChapters; onToggled: page.setServer({ autoDownloadNewChapters: checked }) }
+                }
+                Field {
+                    last: true
+                    label: qsTr("Download location")
+                    hint: page.server.downloadsPath ? page.server.downloadsPath : qsTr("Default: %1/data/downloads").arg(ServerManager.dataDir)
+                    TextBox {
+                        id: pathBox
+                        width: 240
+                        placeholderText: qsTr("Default location")
+                        text: page.server.downloadsPath || ""
+                        onAccepted: page.setServer({ downloadsPath: text.trim() })
+                    }
+                    PillButton { text: qsTr("Save"); onClicked: page.setServer({ downloadsPath: pathBox.text.trim() }) }
+                }
+            }
+
+            Group {
+                title: qsTr("Library updates")
+                Field {
+                    label: qsTr("Check for new chapters")
+                    hint: qsTr("The server checks every title in your library on this schedule.")
+                    Dropdown {
+                        width: 200
+                        model: page.updateIntervals
+                        textRole: "label"
+                        valueRole: "value"
+                        currentIndex: page.updateIntervals.findIndex(o => o.value === page.server.globalUpdateInterval)
+                        onActivated: page.setServer({ globalUpdateInterval: currentValue })
+                    }
+                }
+                Field {
+                    label: qsTr("Skip titles with unread chapters")
+                    Toggle { checked: !!page.server.excludeEntryWithUnreadChapters; onToggled: page.setServer({ excludeEntryWithUnreadChapters: checked }) }
+                }
+                Field {
+                    last: true
+                    label: qsTr("Refresh details and covers too")
+                    hint: qsTr("Slower, but keeps descriptions and cover art current.")
+                    Toggle { checked: !!page.server.updateMangas; onToggled: page.setServer({ updateMangas: checked }) }
                 }
             }
 

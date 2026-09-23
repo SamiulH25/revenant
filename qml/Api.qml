@@ -40,6 +40,11 @@ QtObject {
         })
     }
 
+    // "1 chapter" / "3 chapters" without a translation catalogue.
+    function count(n, one, many) {
+        return (n === 1 ? one : many).arg(n)
+    }
+
     // --- Extensions -------------------------------------------------------
 
     // Makes sure the Keiyoushi store is registered, then refreshes the index.
@@ -154,6 +159,60 @@ QtObject {
     function libraryUpdateStatus(cb) {
         run("{ libraryUpdateStatus { jobsInfo { isRunning totalJobs finishedJobs } } }", {}, cb,
             d => d.libraryUpdateStatus.jobsInfo)
+    }
+
+    // --- Downloads --------------------------------------------------------
+
+    readonly property string downloadFields: "state queue { position progress state tries chapter { id name mangaId } manga { " + mangaCard + " } }"
+
+    function downloadStatus(cb) {
+        run("{ downloadStatus { " + downloadFields + " } }", {}, cb, d => d.downloadStatus)
+    }
+
+    function enqueueDownloads(ids, cb) {
+        run("mutation($ids: [Int!]!) { enqueueChapterDownloads(input: { ids: $ids }) { downloadStatus { " + downloadFields + " } } }",
+            { ids: ids }, cb, d => d.enqueueChapterDownloads.downloadStatus)
+    }
+
+    function dequeueDownloads(ids, cb) {
+        run("mutation($ids: [Int!]!) { dequeueChapterDownloads(input: { ids: $ids }) { downloadStatus { " + downloadFields + " } } }",
+            { ids: ids }, cb, d => d.dequeueChapterDownloads.downloadStatus)
+    }
+
+    function deleteDownloads(ids, cb) {
+        run("mutation($ids: [Int!]!) { deleteDownloadedChapters(input: { ids: $ids }) { chapters { id isDownloaded } } }",
+            { ids: ids }, cb, d => d.deleteDownloadedChapters.chapters)
+    }
+
+    function reorderDownload(chapterId, to, cb) {
+        run("mutation($c: Int!, $t: Int!) { reorderChapterDownload(input: { chapterId: $c, to: $t }) { downloadStatus { " + downloadFields + " } } }",
+            { c: chapterId, t: to }, cb, d => d.reorderChapterDownload.downloadStatus)
+    }
+
+    // action: "start" | "stop" | "clear"
+    function downloader(action, cb) {
+        const name = action === "start" ? "startDownloader" : action === "stop" ? "stopDownloader" : "clearDownloader"
+        run("mutation { " + name + "(input: {}) { downloadStatus { " + downloadFields + " } } }", {}, cb,
+            d => d[name].downloadStatus)
+    }
+
+    // Every downloaded chapter, for the "On disk" view.
+    function downloadedChapters(cb) {
+        run("{ chapters(condition: { isDownloaded: true }, order: [{ by: SOURCE_ORDER }]) { nodes { id name mangaId pageCount manga { " + mangaCard + " } } } }",
+            {}, cb, d => d.chapters.nodes)
+    }
+
+    // --- Server settings --------------------------------------------------
+
+    readonly property string settingsFields: "downloadAsCbz downloadsPath autoDownloadNewChapters autoDownloadNewChaptersLimit excludeEntryWithUnreadChapters globalUpdateInterval updateMangas"
+
+    function serverSettings(cb) {
+        run("{ settings { " + settingsFields + " } }", {}, cb, d => d.settings)
+    }
+
+    function setServerSettings(patch, cb) {
+        run("mutation($s: PartialSettingsTypeInput!) { setSettings(input: { settings: $s }) { settings { " + settingsFields + " } } }",
+            { s: patch }, cb, d => d.setSettings.settings)
     }
 
     // --- Chapters ---------------------------------------------------------
