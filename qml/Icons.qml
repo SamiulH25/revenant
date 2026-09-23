@@ -82,4 +82,13 @@ QtObject {
     readonly property string galleryVerticalEnd: "\ue4d2"
     readonly property string bookCopy: "\ue3ec"
     readonly property string ghost: "\ue20e"
+    readonly property string link: "\ue102"
+    readonly property string logIn: "\ue10d"
+    readonly property string logOut: "\ue10e"
+    readonly property string user: "\ue19f"
+    readonly property string minus: "\ue11c"
+    readonly property string bookOpenText: "\ue54a"
+    readonly property string gallery: "\ue4ce"
+    readonly property string flipHorizontal: "\ue35e"
+    readonly property string columns: "\ue098"
 }

@@ -94,6 +94,8 @@ Popup {
             }
         }
 
+        Item { Layout.preferredHeight: footerRow.visible ? 0 : 24 }
+
         RowLayout {
             id: footerRow
             Layout.fillWidth: true

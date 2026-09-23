@@ -99,6 +99,43 @@ ApplicationWindow {
         stack.push(sourcePage, { source: source, initialQuery: query || "" })
     }
 
+    // --- Trackers ---------------------------------------------------------
+    property int pendingTrackerId: -1
+    signal trackersChanged()
+
+    function loginTracker(tracker) {
+        if (!tracker.authUrl)
+            return trackerLogin.openFor(tracker)
+        const redirect = OAuth.redirectUrl()
+        if (!redirect)
+            return toast(qsTr("Couldn't open a local port for sign-in"), "error")
+        pendingTrackerId = tracker.id
+        // Suwayomi's registered redirect forwards to redirectUrl from the state.
+        const state = { redirectUrl: redirect, clientName: "Revenant", trackerId: tracker.id, trackerName: tracker.name }
+        Qt.openUrlExternally(tracker.authUrl + "&state=" + encodeURIComponent(JSON.stringify(state)))
+        toast(qsTr("Finish signing in to %1 in your browser").arg(tracker.name))
+    }
+
+    Connections {
+        target: OAuth
+        function onReceived(callbackUrl) {
+            const id = app.pendingTrackerId
+            if (id < 0)
+                return
+            app.pendingTrackerId = -1
+            Api.loginTrackerOAuth(id, callbackUrl, function (error, ok) {
+                if (error || !ok)
+                    return app.toast(error || qsTr("Sign-in failed"), "error")
+                app.toast(qsTr("Tracker connected"))
+                app.trackersChanged()
+            })
+        }
+    }
+
+    function openTracking(manga) {
+        tracking.openFor(manga)
+    }
+
     function editMangaCategories(manga) {
         mangaCategories.openFor(manga)
     }
@@ -246,6 +283,8 @@ ApplicationWindow {
 
     SourceSettingsSheet { id: sourceSettings }
     MangaCategoriesSheet { id: mangaCategories }
+    TrackingSheet { id: tracking }
+    TrackerLoginSheet { id: trackerLogin; onSignedIn: app.trackersChanged() }
 
     Toast { id: toaster }
 }

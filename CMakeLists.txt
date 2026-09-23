@@ -18,6 +18,7 @@ qt_add_executable(revenant
     src/imagecache.h src/imagecache.cpp
     src/keyedlistmodel.h src/keyedlistmodel.cpp
     src/devscript.h src/devscript.cpp
+    src/oauthreceiver.h src/oauthreceiver.cpp
 )
 
 set(QML_FILES
@@ -51,6 +52,8 @@ set(QML_FILES
     qml/sheets/SourceSettingsSheet.qml
     qml/sheets/CategoriesSheet.qml
     qml/sheets/MangaCategoriesSheet.qml
+    qml/sheets/TrackingSheet.qml
+    qml/sheets/TrackerLoginSheet.qml
     qml/pages/BootPage.qml
     qml/pages/LibraryPage.qml
     qml/pages/BrowsePage.qml

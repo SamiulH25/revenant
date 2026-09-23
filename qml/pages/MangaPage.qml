@@ -104,6 +104,8 @@ Item {
             const set = new Set(ids)
             chapters = chapters.map(c => set.has(c.id) ? Object.assign({}, c, { isRead: read, lastPageRead: read ? c.lastPageRead : 0 }) : c)
             app.libraryRevision++
+            if (read)
+                Api.trackProgress(mangaId)
         })
     }
 
@@ -315,6 +317,13 @@ Item {
                                 tip: qsTr("Categories")
                                 filled: true
                                 onClicked: app.editMangaCategories(page.manga)
+                            }
+                            IconButton {
+                                implicitWidth: 46; implicitHeight: 46
+                                glyph: Icons.link
+                                tip: qsTr("Tracking")
+                                filled: true
+                                onClicked: app.openTracking(page.manga)
                             }
                             IconButton {
                                 implicitWidth: 46; implicitHeight: 46

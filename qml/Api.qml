@@ -199,6 +199,62 @@ QtObject {
             { id: mangaId, a: add, r: remove }, cb, d => d.updateMangaCategories.manga)
     }
 
+    // --- Tracking ---------------------------------------------------------
+
+    readonly property string trackerFields: "id name icon isLoggedIn isTokenExpired authUrl scores statuses { name value } supportsPrivateTracking"
+    readonly property string recordFields: "id trackerId remoteId remoteUrl title status score displayScore lastChapterRead totalChapters private"
+
+    function trackers(cb) {
+        run("{ trackers { nodes { " + trackerFields + " } } }", {}, cb, d => d.trackers.nodes)
+    }
+
+    function loginTrackerOAuth(trackerId, callbackUrl, cb) {
+        run("mutation($t: Int!, $u: String!) { loginTrackerOAuth(input: { trackerId: $t, callbackUrl: $u }) { isLoggedIn } }",
+            { t: trackerId, u: callbackUrl }, cb, d => d.loginTrackerOAuth.isLoggedIn)
+    }
+
+    function loginTrackerCredentials(trackerId, username, password, cb) {
+        run("mutation($t: Int!, $u: String!, $p: String!) { loginTrackerCredentials(input: { trackerId: $t, username: $u, password: $p }) { isLoggedIn } }",
+            { t: trackerId, u: username, p: password }, cb, d => d.loginTrackerCredentials.isLoggedIn)
+    }
+
+    function logoutTracker(trackerId, cb) {
+        run("mutation($t: Int!) { logoutTracker(input: { trackerId: $t }) { isLoggedIn } }", { t: trackerId }, cb,
+            d => d.logoutTracker.isLoggedIn)
+    }
+
+    function trackRecords(mangaId, cb) {
+        run("query($id: Int!) { manga(id: $id) { trackRecords { nodes { " + recordFields + " } } } }", { id: mangaId }, cb,
+            d => d.manga.trackRecords.nodes)
+    }
+
+    function searchTracker(trackerId, query, cb) {
+        run("query($t: Int!, $q: String!) { searchTracker(input: { trackerId: $t, query: $q }) { trackSearches { remoteId title coverUrl summary publishingStatus publishingType startDate totalChapters trackingUrl } } }",
+            { t: trackerId, q: query }, cb, d => d.searchTracker.trackSearches)
+    }
+
+    function bindTrack(mangaId, trackerId, remoteId, cb) {
+        run("mutation($m: Int!, $t: Int!, $r: LongString!) { bindTrack(input: { mangaId: $m, trackerId: $t, remoteId: $r }) { trackRecord { " + recordFields + " } } }",
+            { m: mangaId, t: trackerId, r: remoteId }, cb, d => d.bindTrack.trackRecord)
+    }
+
+    // patch: { status?, lastChapterRead?, scoreString?, private? }
+    function updateTrack(recordId, patch, cb) {
+        run("mutation($i: UpdateTrackInput!) { updateTrack(input: $i) { trackRecord { " + recordFields + " } } }",
+            { i: Object.assign({ recordId: recordId }, patch) }, cb, d => d.updateTrack.trackRecord)
+    }
+
+    function unbindTrack(recordId, deleteRemote, cb) {
+        run("mutation($r: Int!, $d: Boolean) { unbindTrack(input: { recordId: $r, deleteRemoteTrack: $d }) { trackRecord { id } } }",
+            { r: recordId, d: !!deleteRemote }, cb, d => d.unbindTrack)
+    }
+
+    // Pushes read progress to every tracker bound to the title.
+    function trackProgress(mangaId, cb) {
+        run("mutation($m: Int!) { trackProgress(input: { mangaId: $m }) { trackRecords { id } } }", { m: mangaId }, cb,
+            d => d.trackProgress)
+    }
+
     // --- Downloads --------------------------------------------------------
 
     readonly property string downloadFields: "state queue { position progress state tries chapter { id name mangaId } manga { " + mangaCard + " } }"

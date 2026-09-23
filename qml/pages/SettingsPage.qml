@@ -9,6 +9,16 @@ Item {
     property real cacheBytes: ImageCache.diskUsage()
     // Settings stored by the extension server (downloads, library updates).
     property var server: ({})
+    property var trackers: []
+
+    function loadTrackers() {
+        Api.trackers((error, list) => { if (!error) page.trackers = list })
+    }
+
+    Connections {
+        target: app
+        function onTrackersChanged() { page.loadTrackers() }
+    }
 
     function setServer(patch) {
         Api.setServerSettings(patch, function (error, settings) {
@@ -18,7 +28,10 @@ Item {
         })
     }
 
-    Component.onCompleted: Api.serverSettings((error, settings) => { if (!error) page.server = settings })
+    Component.onCompleted: {
+        Api.serverSettings((error, settings) => { if (!error) page.server = settings })
+        loadTrackers()
+    }
 
     readonly property var updateIntervals: [
         { value: 0, label: qsTr("Off") }, { value: 6, label: qsTr("Every 6 hours") },
@@ -271,6 +284,37 @@ Item {
                     label: qsTr("Refresh details and covers too")
                     hint: qsTr("Slower, but keeps descriptions and cover art current.")
                     Toggle { checked: !!page.server.updateMangas; onToggled: page.setServer({ updateMangas: checked }) }
+                }
+            }
+
+            Group {
+                title: qsTr("Tracking")
+                Repeater {
+                    model: page.trackers
+                    Field {
+                        required property var modelData
+                        required property int index
+                        last: index === page.trackers.length - 1
+                        label: modelData.name
+                        hint: modelData.isLoggedIn ? (modelData.isTokenExpired ? qsTr("Session expired: sign in again") : qsTr("Signed in"))
+                                                   : modelData.authUrl ? qsTr("Signs in through your browser") : qsTr("Signs in with username and password")
+                        Cover {
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: 28; height: 28
+                            radius: 6
+                            source: Api.cover(modelData.icon)
+                        }
+                        PillButton {
+                            glyph: modelData.isLoggedIn && !modelData.isTokenExpired ? Icons.logOut : Icons.logIn
+                            text: modelData.isLoggedIn && !modelData.isTokenExpired ? qsTr("Sign out") : qsTr("Sign in")
+                            onClicked: {
+                                if (modelData.isLoggedIn && !modelData.isTokenExpired)
+                                    Api.logoutTracker(modelData.id, () => page.loadTrackers())
+                                else
+                                    app.loginTracker(modelData)
+                            }
+                        }
+                    }
                 }
             }
 

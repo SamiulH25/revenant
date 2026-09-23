@@ -98,6 +98,8 @@ Rectangle {
             if (err)
                 return app.toast(qsTr("Couldn't save progress: %1").arg(err), "error")
             patchChapter(Object.assign({ id: id }, patch))
+            if (patch.isRead && reader.manga)
+                Api.trackProgress(reader.manga.id)
         })
     }
 
