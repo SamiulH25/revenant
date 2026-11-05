@@ -157,7 +157,7 @@ Item {
 
     // Lets go of a dragged turn: finish it or drop the page back.
     function release(velocity) {
-        const go = turn.progress > 0.32 || velocity > 700
+        const go = turn.progress > 0.3 || velocity > 600
         const back = velocity < -500
         settle.from = turn.progress
         settle.to = go && !back ? 1 : 0
@@ -373,15 +373,23 @@ Item {
             yAxis.enabled: false
             dragThreshold: 8
             property int want: 0
+            // Our own velocity estimate (px/s along the turn): the handler's
+            // centroid velocity is already reset by the time it lets go.
+            property real lastAlong: 0
+            property real lastTime: 0
+            property real speed: 0
+            // A full turn takes about one page width of drag.
+            readonly property real reach: Math.max(260, (root.currentPage ? root.currentPage.pageRect.width : root.width * 0.5) * 1.1)
             onActiveChanged: {
                 if (active) {
                     want = 0
+                    speed = 0
+                    lastAlong = 0
+                    lastTime = Date.now()
                     return
                 }
-                if (turn.active && turn.manual) {
-                    const v = centroid.velocity.x * root.screenDir * (want > 0 ? -1 : 1)
-                    root.release(v)
-                }
+                if (turn.active && turn.manual)
+                    root.release(Date.now() - lastTime > 120 ? 0 : speed)
             }
             onTranslationChanged: {
                 const dx = translation.x
@@ -398,7 +406,12 @@ Item {
                     turn.tilt = (y - 0.5) * 0.7
                 }
                 const along = want > 0 ? -dx * root.screenDir : dx * root.screenDir
-                turn.progress = Math.max(0, Math.min(1, along / (root.width * 0.7)))
+                const now = Date.now()
+                const dt = Math.max(1, now - lastTime)
+                speed = speed * 0.4 + ((along - lastAlong) / dt * 1000) * 0.6
+                lastAlong = along
+                lastTime = now
+                turn.progress = Math.max(0, Math.min(1, along / reach))
             }
         }
 

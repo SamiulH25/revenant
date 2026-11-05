@@ -51,11 +51,13 @@ QtObject {
     // Delay between items in a staggered entrance.
     readonly property int stagger: 34
 
+    // Ambient, never-ending animation (drifting light, slow zooms, pulses)
+    // only runs while the window is in use and motion isn't reduced.
+    readonly property bool ambientMotion: !Prefs.reduceMotion && Qt.application.state === Qt.ApplicationActive
+
     readonly property int gutter: 40
     readonly property int navHeight: 72
     readonly property int contentTop: 96
-    // Kept for pages that still lay out against a side rail.
-    readonly property int navWidth: 0
 
     function alpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a) }
     function mix(a, b, t) {

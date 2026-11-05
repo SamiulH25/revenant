@@ -71,6 +71,7 @@ Item {
                 // Idle haunting: a slow drift up and down.
                 SequentialAnimation on anchors.verticalCenterOffset {
                     loops: Animation.Infinite
+                    running: Theme.ambientMotion
                     NumberAnimation { from: 1.5; to: -1.5; duration: 1800; easing.type: Easing.InOutSine }
                     NumberAnimation { from: -1.5; to: 1.5; duration: 1800; easing.type: Easing.InOutSine }
                 }
@@ -199,7 +200,7 @@ Item {
                                     color: Theme.accentInk
                                 }
                                 SequentialAnimation on scale {
-                                    running: tab.badge > 0
+                                    running: tab.badge > 0 && Theme.ambientMotion
                                     loops: Animation.Infinite
                                     NumberAnimation { from: 1; to: 1.12; duration: 700; easing.type: Easing.InOutSine }
                                     NumberAnimation { from: 1.12; to: 1; duration: 700; easing.type: Easing.InOutSine }

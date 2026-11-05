@@ -31,6 +31,8 @@ Item {
             from: 0; to: 1
             duration: g.period
             loops: Animation.Infinite
+            running: Theme.ambientMotion
+            paused: running && !aurora.visible
         }
         Behavior on color { ColorAnimation { duration: Theme.cinematic * 1.5; easing.type: Easing.InOutQuad } }
     }

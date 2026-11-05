@@ -306,6 +306,7 @@ Item {
                             color: page.heroTint
                             SequentialAnimation on opacity {
                                 loops: Animation.Infinite
+                                running: Theme.ambientMotion && page.StackView.status === StackView.Active
                                 NumberAnimation { from: 1; to: 0.3; duration: 1100; easing.type: Easing.InOutSine }
                                 NumberAnimation { from: 0.3; to: 1; duration: 1100; easing.type: Easing.InOutSine }
                             }

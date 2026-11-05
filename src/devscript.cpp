@@ -4,6 +4,7 @@
 #include <QFile>
 #include <QKeyEvent>
 #include <QMetaEnum>
+#include <QMouseEvent>
 #include <QQmlApplicationEngine>
 #include <QQmlExpression>
 #include <QQuickWindow>
@@ -35,6 +36,23 @@ DevScript::DevScript(QQmlApplicationEngine *engine, QStringList lines)
     , m_engine(engine)
     , m_lines(std::move(lines))
 {
+    m_clock.start();
+}
+
+void DevScript::mouse(QWindow *window, QEvent::Type type, QPointF pos)
+{
+    Qt::MouseButton button = Qt::NoButton;
+    if (type == QEvent::MouseButtonPress) {
+        button = Qt::LeftButton;
+        m_buttons |= Qt::LeftButton;
+    } else if (type == QEvent::MouseButtonRelease) {
+        button = Qt::LeftButton;
+        m_buttons &= ~Qt::LeftButton;
+    }
+    QMouseEvent event(type, pos, window->mapToGlobal(pos), button, m_buttons, Qt::NoModifier);
+    // Pointer handlers work out velocity from timestamps.
+    event.setTimestamp(quint64(m_clock.elapsed()));
+    QCoreApplication::sendEvent(window, &event);
 }
 
 void DevScript::step()
@@ -66,6 +84,34 @@ void DevScript::step()
             QCoreApplication::sendEvent(window, &press);
             QCoreApplication::sendEvent(window, &release);
         }
+    } else if (window && (command == QLatin1String("move") || command == QLatin1String("press")
+                          || command == QLatin1String("release") || command == QLatin1String("click"))) {
+        const QStringList n = arg.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        const QPointF pos(n.value(0).toDouble(), n.value(1).toDouble());
+        if (command == QLatin1String("move")) {
+            mouse(window, QEvent::MouseMove, pos);
+        } else if (command == QLatin1String("press")) {
+            mouse(window, QEvent::MouseButtonPress, pos);
+        } else if (command == QLatin1String("release")) {
+            mouse(window, QEvent::MouseButtonRelease, pos);
+        } else {
+            mouse(window, QEvent::MouseButtonPress, pos);
+            mouse(window, QEvent::MouseButtonRelease, pos);
+        }
+    } else if (command == QLatin1String("glide")) {
+        // Expands into small timed moves, queued ahead of the rest.
+        const QStringList n = arg.split(QLatin1Char(' '), Qt::SkipEmptyParts);
+        const double x1 = n.value(0).toDouble(), y1 = n.value(1).toDouble();
+        const double x2 = n.value(2).toDouble(), y2 = n.value(3).toDouble();
+        const int ms = qMax(16, n.value(4).toInt());
+        const int steps = qMax(2, ms / 16);
+        QStringList moves;
+        for (int i = 1; i <= steps; ++i) {
+            const double t = double(i) / steps;
+            moves << QStringLiteral("move %1 %2").arg(x1 + (x2 - x1) * t).arg(y1 + (y2 - y1) * t)
+                  << QStringLiteral("wait 16");
+        }
+        m_lines = moves + m_lines;
     } else if (command == QLatin1String("shot") && window) {
         window->grabWindow().save(arg);
     } else if (command == QLatin1String("quit")) {

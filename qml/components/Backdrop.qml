@@ -41,6 +41,7 @@ Item {
         transformOrigin: Item.Center
         SequentialAnimation on scale {
             loops: Animation.Infinite
+            running: Theme.ambientMotion && root.visible
             NumberAnimation { from: 1.08; to: 1.2; duration: 26000; easing.type: Easing.InOutSine }
             NumberAnimation { from: 1.2; to: 1.08; duration: 26000; easing.type: Easing.InOutSine }
         }

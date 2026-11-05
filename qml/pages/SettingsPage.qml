@@ -259,6 +259,11 @@ Item {
             Group {
                 title: qsTr("Library & browsing")
                 Field {
+                    label: qsTr("Reduce motion")
+                    hint: qsTr("Stills the drifting background light, slow zooms and pulses. Transitions stay.")
+                    Toggle { checked: Prefs.reduceMotion; onToggled: Prefs.reduceMotion = checked }
+                }
+                Field {
                     label: qsTr("Cover size")
                     hint: qsTr("%1 px").arg(Prefs.coverSize)
                     Range { from: 120; to: 280; stepSize: 10; suffix: " px"; value: Prefs.coverSize; onMoved: Prefs.coverSize = value }

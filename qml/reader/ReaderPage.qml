@@ -1061,8 +1061,8 @@ Rectangle {
                         opacity: pageSlider.peekPage >= 0 ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: Theme.fast } }
                         width: 132
-                        height: 188 + 26
-                        y: -height - 22
+                        height: 188 + 30
+                        y: -height - 18
                         x: {
                             const n = Math.max(1, reader.pages.length - 1)
                             let f = Math.max(0, pageSlider.peekPage) / n
@@ -1088,15 +1088,22 @@ Rectangle {
                                 asynchronous: true
                             }
                         }
-                        Text {
+                        Rectangle {
                             anchors.horizontalCenter: parent.horizontalCenter
                             anchors.bottom: parent.bottom
-                            text: qsTr("Page %1").arg(pageSlider.peekPage + 1)
-                            font.pixelSize: 12
-                            font.weight: Font.DemiBold
-                            color: Theme.text
-                            style: Text.Outline
-                            styleColor: Qt.rgba(0, 0, 0, 0.6)
+                            width: pageLabel.implicitWidth + 16
+                            height: 22
+                            radius: 11
+                            color: Theme.alpha(Theme.bg, 0.85)
+                            border.color: Theme.glassEdge
+                            Text {
+                                id: pageLabel
+                                anchors.centerIn: parent
+                                text: qsTr("Page %1").arg(pageSlider.peekPage + 1)
+                                font.pixelSize: 12
+                                font.weight: Font.DemiBold
+                                color: Theme.text
+                            }
                         }
                     }
                 }
