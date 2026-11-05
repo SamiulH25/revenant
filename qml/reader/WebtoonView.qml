@@ -9,6 +9,9 @@ Item {
     property var pages: []
     property int currentIndex: 0
     property bool hasNextChapter: false
+    // Hands-free reading: drift down at `speed` pixels per second.
+    property bool autoscroll: false
+    property real speed: Prefs.autoscrollSpeed
     readonly property real stripWidth: Math.min(width, Prefs.webtoonWidth)
 
     // Aspect ratios of pages already seen, so delegates that get recreated
@@ -43,6 +46,20 @@ Item {
     function stepLeft() { prev() }
     function stepRight() { next() }
     function toggleZoom() {}
+
+    FrameAnimation {
+        running: root.autoscroll && root.visible && root.pages.length > 0
+        onTriggered: {
+            if (list.dragging || list.flicking || scroller.running)
+                return
+            const max = list.contentHeight + list.originY - list.height
+            if (list.contentY >= max - 0.5) {
+                root.pastEnd()
+                return
+            }
+            list.contentY = Math.min(max, list.contentY + root.speed * frameTime)
+        }
+    }
 
     NumberAnimation {
         id: scroller

@@ -1,9 +1,11 @@
 import QtQuick
 import Revenant
 
-// Horizontal one-screen-at-a-time reader: single pages or two-page spreads.
-// rtl flips direction for manga. currentIndex and goTo() speak in page
-// numbers; the list itself holds spreads (arrays of page indices).
+// One screen at a time: single pages or two-page spreads, turned with a
+// page curl (or a slide, or a fade). Turns can be dragged: grab the page,
+// peel it part-way, and let go to finish or drop it back. rtl flips the
+// direction for manga. currentIndex and goTo() speak in page numbers;
+// internally the view steps through spreads (arrays of page indices).
 Item {
     id: root
 
@@ -11,8 +13,9 @@ Item {
     property bool rtl: true
     property bool doublePage: false
     property bool spreadOffset: false   // first page (cover) on its own
+    property string turnStyle: "curl"    // curl | slide | fade | none
     property int currentIndex: 0
-    readonly property ZoomablePage currentPage: list.currentItem as ZoomablePage
+    readonly property ZoomablePage currentPage: pageAt(cur)
 
     // Landscape pages seen so far; they always get a screen to themselves.
     property var wide: ({})
@@ -40,37 +43,139 @@ Item {
         }
         return out
     }
+
+    // The spread on screen.
+    property int cur: 0
     property bool relayout: false
 
     signal pastEnd()
     signal pastStart()
     signal toggleChrome()
+    signal turned()
+
+    function pageAt(i) {
+        const slot = rep.itemAt(i)
+        return slot ? slot.page : null
+    }
 
     function spreadOf(page) {
         const i = spreads.findIndex(s => s.indexOf(page) >= 0)
         return i < 0 ? 0 : i
     }
 
+    function setCur(i) {
+        cur = i
+        const spread = spreads[i]
+        if (spread)
+            currentIndex = spread[spread.length - 1]
+        if (currentPage)
+            currentPage.scrollToEdge(false)
+        for (let j = 0; j < rep.count; ++j) {
+            const p = pageAt(j)
+            if (p && j !== i)
+                p.resetZoom()
+        }
+    }
+
     function goTo(index, animate) {
         if (index < 0 || index >= pages.length)
             return
-        list.highlightMoveDuration = animate === false ? 0 : 240
-        list.currentIndex = spreadOf(index)
-    }
-    function next() {
-        if (list.currentIndex >= spreads.length - 1) pastEnd()
+        const target = spreadOf(index)
+        if (animate !== false && Math.abs(target - cur) === 1)
+            startTurn(target - cur, false)
         else {
-            list.highlightMoveDuration = 240
-            list.currentIndex += 1
+            finishNow()
+            setCur(target)
         }
     }
-    function prev() {
-        if (list.currentIndex <= 0) pastStart()
-        else {
-            list.highlightMoveDuration = 240
-            list.currentIndex -= 1
+
+    // --- Turning ---------------------------------------------------------------
+
+    QtObject {
+        id: turn
+        property bool active: false
+        property int from: 0
+        property int to: 0
+        property int dir: 1           // +1 forward, -1 back
+        property real progress: 0     // 0 = still on `from`, 1 = arrived at `to`
+        property bool manual: false   // following a drag
+        property real tilt: 0.16
+    }
+    readonly property bool turning: turn.active
+    // Exposed for scripted runs (screenshots of a turn in progress).
+    property alias turnProgress: turn.progress
+    property alias turnTilt: turn.tilt
+
+    // Returns false when there's nowhere to go (and reports it).
+    function startTurn(delta, manual) {
+        finishNow()
+        const to = cur + delta
+        if (to < 0) { pastStart(); return false }
+        if (to >= spreads.length) { pastEnd(); return false }
+        if (turnStyle === "none" && !manual) {
+            setCur(to)
+            turned()
+            return true
+        }
+        turn.from = cur
+        turn.to = to
+        turn.dir = delta
+        turn.manual = manual
+        turn.progress = 0
+        if (!manual)
+            turn.tilt = 0.16
+        turn.active = true
+        if (!manual) {
+            settle.from = 0
+            settle.to = 1
+            settle.duration = turnStyle === "curl" ? 620 : 420
+            settle.easing.type = turnStyle === "curl" ? Easing.InOutQuad : Easing.OutQuint
+            settle.restart()
+        }
+        return true
+    }
+
+    function finishNow() {
+        if (!turn.active)
+            return
+        settle.stop()
+        if (turn.manual && turn.progress < 1) {
+            turn.active = false
+            return
+        }
+        endTurn(true)
+    }
+
+    function endTurn(arrived) {
+        turn.active = false
+        turn.manual = false
+        if (arrived) {
+            setCur(turn.to)
+            turned()
         }
     }
+
+    // Lets go of a dragged turn: finish it or drop the page back.
+    function release(velocity) {
+        const go = turn.progress > 0.32 || velocity > 700
+        const back = velocity < -500
+        settle.from = turn.progress
+        settle.to = go && !back ? 1 : 0
+        settle.duration = 160 + 380 * Math.abs(settle.to - turn.progress)
+        settle.easing.type = Easing.OutCubic
+        turn.manual = false
+        settle.restart()
+    }
+
+    NumberAnimation {
+        id: settle
+        target: turn
+        property: "progress"
+        onFinished: root.endTurn(turn.progress >= 1)
+    }
+
+    function next() { startTurn(1, false) }
+    function prev() { startTurn(-1, false) }
 
     function noteWide(page, isWide) {
         if (!doublePage || !isWide || wide[page])
@@ -80,14 +185,13 @@ Item {
         wide = w
     }
 
-    // The model is swapped by hand so the reader stays on the same page when
-    // the pairing changes (toggling spreads, or a wide page turning up).
+    // Stay on the same page when the pairing changes (toggling spreads, or a
+    // wide page turning up).
     onSpreadsChanged: {
         const page = currentIndex
         relayout = true
-        list.model = spreads
-        list.highlightMoveDuration = 0
-        list.currentIndex = spreadOf(page)
+        finishNow()
+        cur = spreadOf(page)
         relayout = false
     }
     onPagesChanged: wide = {}
@@ -107,57 +211,133 @@ Item {
         if (currentPage) currentPage.toggleZoom()
     }
 
-    ListView {
-        id: list
-        anchors.fill: parent
-        orientation: ListView.Horizontal
-        layoutDirection: root.rtl ? Qt.RightToLeft : Qt.LeftToRight
-        snapMode: ListView.SnapOneItem
-        highlightRangeMode: ListView.StrictlyEnforceRange
-        highlightMoveDuration: 240
-        boundsBehavior: Flickable.StopAtBounds
-        // Keep neighbours decoded so turning is instant.
-        cacheBuffer: Math.max(0, width * Prefs.preloadPages)
-        reuseItems: false
-        Component.onCompleted: model = root.spreads
-        interactive: !(root.currentPage && root.currentPage.zoomed)
+    // --- Slots -------------------------------------------------------------------
+    // Every spread gets a slot; nearby ones keep their pages decoded so turns
+    // are instant. Only the current spread (and, mid-turn, its neighbour)
+    // is shown.
 
-        onCurrentIndexChanged: {
-            if (root.relayout || currentIndex < 0 || currentIndex >= root.spreads.length)
-                return
-            // Progress counts the last page on screen.
-            const spread = root.spreads[currentIndex]
-            root.currentIndex = spread[spread.length - 1]
-            if (root.currentPage)
-                root.currentPage.scrollToEdge(false)
-        }
+    // Which way "forward" moves on screen.
+    readonly property int screenDir: rtl ? -1 : 1
 
-        delegate: ZoomablePage {
-            id: pageItem
+    Repeater {
+        id: rep
+        model: root.spreads
+        delegate: Item {
+            id: slot
             required property var modelData
             required property int index
-            width: list.width
-            height: list.height
-            indices: modelData
-            sources: modelData.map(i => root.pages[i])
-            rtl: root.rtl
-            onMeasured: (page, isWide) => root.noteWide(page, isWide)
+            readonly property ZoomablePage page: loader.item as ZoomablePage
+            readonly property bool isFrom: turn.active && index === turn.from
+            readonly property bool isTo: turn.active && index === turn.to
+            readonly property real p: turn.progress
+            readonly property bool sliding: root.turnStyle === "slide" || (root.turnStyle === "none" && turn.manual)
 
-            ListView.onIsCurrentItemChanged: if (!ListView.isCurrentItem) resetZoom()
+            width: root.width
+            height: root.height
+            visible: turn.active ? (isFrom || isTo) : index === root.cur
+            // Slide: the incoming page travels over; going back, the outgoing
+            // page slides off the top of the one beneath.
+            z: !turn.active ? 1
+               : sliding ? ((turn.dir > 0) === isTo ? 2 : 1)
+               : root.turnStyle === "fade" ? (isTo ? 2 : 1)
+               : (isTo === (turn.dir > 0) ? 1 : 2)
+            x: {
+                if (!turn.active || !sliding)
+                    return 0
+                const w = root.width * root.screenDir
+                if (turn.dir > 0)
+                    return isTo ? (1 - p) * w : -p * w * 0.28
+                return isFrom ? p * w : -(1 - p) * w * 0.28
+            }
+            opacity: {
+                if (!turn.active)
+                    return 1
+                if (root.turnStyle === "fade")
+                    return isTo ? p : 1
+                if (sliding) {
+                    // The page underneath sits a little in shadow.
+                    const under = turn.dir > 0 ? isFrom : isTo
+                    return under ? 1 - 0.45 * (turn.dir > 0 ? p : 1 - p) : 1
+                }
+                return 1
+            }
 
-            PageStatus {
-                anchors.centerIn: parent
-                page: pageItem
-                label: pageItem.modelData.map(i => i + 1).join("–")
+            Loader {
+                id: loader
+                anchors.fill: parent
+                active: Math.abs(slot.index - root.cur) <= Math.max(2, Prefs.preloadPages) || slot.isTo
+                sourceComponent: ZoomablePage {
+                    indices: slot.modelData
+                    sources: slot.modelData.map(i => root.pages[i])
+                    rtl: root.rtl
+                    onMeasured: (page, isWide) => root.noteWide(page, isWide)
+
+                    PageStatus {
+                        anchors.centerIn: parent
+                        page: parent
+                        label: slot.modelData.map(i => i + 1).join("–")
+                    }
+                }
+            }
+
+            Rectangle {
+                // Shadow cast by a sliding page onto the one beneath.
+                visible: turn.active && slot.sliding && ((turn.dir > 0) === slot.isTo)
+                width: 40
+                height: parent.height
+                x: root.screenDir > 0 ? -width : parent.width
+                gradient: Gradient {
+                    orientation: Gradient.Horizontal
+                    GradientStop { position: 0; color: root.screenDir > 0 ? "transparent" : Qt.rgba(0, 0, 0, 0.35) }
+                    GradientStop { position: 1; color: root.screenDir > 0 ? Qt.rgba(0, 0, 0, 0.35) : "transparent" }
+                }
             }
         }
     }
 
-    Item {
-        // Input layer above the list. Its handlers only grab passively (tap)
-        // or consume wheel events, so drags still reach the list for swiping
-        // and panning.
+    // --- Curl overlay --------------------------------------------------------------
+    // Going forward the current page peels away; going back the previous
+    // page un-peels onto the stack.
+    readonly property Item curlItem: !turn.active || turnStyle !== "curl" ? null
+                                    : rep.itemAt(turn.dir > 0 ? turn.from : turn.to)
+    ShaderEffectSource {
+        id: curlSource
+        sourceItem: root.curlItem
+        hideSource: root.curlItem !== null
+        live: true
+        visible: false
+        width: root.width
+        height: root.height
+    }
+
+    ShaderEffect {
+        id: curl
         anchors.fill: parent
+        z: 5
+        visible: root.curlItem !== null
+        readonly property ZoomablePage turningPage: root.curlItem ? root.curlItem.page : null
+        property variant source: curlSource
+        property real progress: turn.dir > 0 ? turn.progress : 1 - turn.progress
+        property real dir: root.rtl ? -1 : 1
+        property real tilt: turn.tilt
+        property real radius: Math.max(26, (turningPage ? turningPage.pageRect.width : width) * 0.085)
+        property real shadow: 0.55
+        property size viewSize: Qt.size(width, height)
+        property vector4d pageRect: {
+            const r = turningPage ? turningPage.pageRect : Qt.rect(0, 0, width, height)
+            return Qt.vector4d(r.x, r.y, r.width, r.height)
+        }
+        // Fade the last sliver out rather than popping it away.
+        opacity: progress > 0.88 ? Math.max(0, 1 - (progress - 0.88) / 0.12) : 1
+        fragmentShader: "qrc:/qt/qml/Revenant/shaders/curl.frag.qsb"
+    }
+
+    // --- Input -----------------------------------------------------------------
+    Item {
+        // Input layer above the pages. Its handlers grab passively (tap) or
+        // only once a horizontal drag starts, so zoomed pages still pan.
+        anchors.fill: parent
+        z: 10
 
         WheelHandler {
             // Plain wheel: scroll a tall page, then turn. Throttled so one
@@ -182,6 +362,43 @@ Item {
             onWheel: event => {
                 if (root.currentPage)
                     root.currentPage.zoomAt(event.angleDelta.y > 0 ? 1.15 : 1 / 1.15, point.position.x, point.position.y)
+            }
+        }
+
+        DragHandler {
+            // Peel the page with the pointer.
+            id: peel
+            target: null
+            enabled: !(root.currentPage && root.currentPage.zoomed)
+            yAxis.enabled: false
+            dragThreshold: 8
+            property int want: 0
+            onActiveChanged: {
+                if (active) {
+                    want = 0
+                    return
+                }
+                if (turn.active && turn.manual) {
+                    const v = centroid.velocity.x * root.screenDir * (want > 0 ? -1 : 1)
+                    root.release(v)
+                }
+            }
+            onTranslationChanged: {
+                const dx = translation.x
+                if (!turn.manual) {
+                    if (Math.abs(dx) < 6 || want !== 0)
+                        return
+                    // Dragging against the reading direction goes forward.
+                    want = dx * root.screenDir < 0 ? 1 : -1
+                    if (!root.startTurn(want, true)) {
+                        want = 2   // nowhere to go; ignore the rest of the drag
+                        return
+                    }
+                    const y = centroid.pressPosition.y / Math.max(1, root.height)
+                    turn.tilt = (y - 0.5) * 0.7
+                }
+                const along = want > 0 ? -dx * root.screenDir : dx * root.screenDir
+                turn.progress = Math.max(0, Math.min(1, along / (root.width * 0.7)))
             }
         }
 

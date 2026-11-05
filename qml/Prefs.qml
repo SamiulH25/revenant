@@ -14,7 +14,10 @@ Settings {
     property bool readerSpreadOffset: true    // cover page alone before the first spread
     property int webtoonWidth: 820            // max strip width in px
     property int webtoonGap: 0
-    property string readerBackground: "black" // black | gray | white
+    property string readerBackground: "ambient" // ambient | black | gray | white
+    property string readerTurn: "curl"        // curl | slide | fade | none (paged modes)
+    property int autoplaySeconds: 8           // paged autoplay: seconds per page
+    property int autoscrollSpeed: 90          // webtoon autoscroll: pixels per second
     property bool readerDoubleTap: true
     property bool autoMarkRead: true
     property int preloadPages: 4
@@ -27,4 +30,7 @@ Settings {
     property bool showNsfw: false
     property var languages: ["en", "all"]
     property string lastSourceId: ""
+    property var pinnedSources: []            // source ids shown first in Discover
+    property var recentSearches: []           // newest first
+    property var recentSources: []            // source ids, most recently opened first
 }

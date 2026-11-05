@@ -105,7 +105,7 @@ Item {
         anchors.fill: parent
         anchors.leftMargin: Theme.gutter
         anchors.rightMargin: Theme.gutter
-        anchors.topMargin: 40
+        anchors.topMargin: Theme.contentTop
         spacing: 20
 
         RowLayout {

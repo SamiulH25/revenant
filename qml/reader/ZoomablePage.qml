@@ -13,6 +13,8 @@ Item {
     property bool rtl: false          // spreads read right to left
     property int retries: 0
     readonly property bool zoomed: view.zoom > 1.01
+    // Where the page(s) sit on screen, for effects that need the paper's edges.
+    readonly property rect pageRect: Qt.rect(pageRow.x - view.contentX, pageRow.y - view.contentY, view.shownW, view.shownH)
 
     readonly property int status: {
         let ready = 0
@@ -36,6 +38,7 @@ Item {
     signal measured(int pageIndex, bool wide)
 
     function resetZoom() {
+        zoomAnim.stop()
         view.zoom = 1
         view.contentX = 0
         view.contentY = 0
@@ -52,10 +55,39 @@ Item {
     }
 
     function toggleZoom(x, y) {
-        if (zoomed)
-            resetZoom()
-        else
-            zoomAt(2.2, x === undefined ? width / 2 : x, y === undefined ? height / 2 : y)
+        zoomTo(zoomed ? 1 : 2.2, x === undefined ? width / 2 : x, y === undefined ? height / 2 : y)
+    }
+
+    // Animated zoom that keeps the point (x, y) under the pointer.
+    property real focusX: 0
+    property real focusY: 0
+    property real focusFracX: 0.5
+    property real focusFracY: 0.5
+    function zoomTo(target, x, y) {
+        focusX = x
+        focusY = y
+        focusFracX = (view.contentX + x) / Math.max(view.contentWidth, 1)
+        focusFracY = (view.contentY + y) / Math.max(view.contentHeight, 1)
+        zoomAnim.to = target
+        zoomAnim.restart()
+    }
+    NumberAnimation {
+        id: zoomAnim
+        target: view
+        property: "zoom"
+        duration: Theme.slow
+        easing.type: Easing.OutCubic
+    }
+    Connections {
+        target: view
+        enabled: zoomAnim.running
+        function onZoomChanged() {
+            // contentWidth's binding may not have caught up yet; derive it.
+            const cw = Math.max(root.width, view.natW * view.baseScale * view.zoom)
+            const ch = Math.max(root.height, view.natH * view.baseScale * view.zoom)
+            view.contentX = Math.max(0, Math.min(cw - root.width, root.focusFracX * cw - root.focusX))
+            view.contentY = Math.max(0, Math.min(ch - root.height, root.focusFracY * ch - root.focusY))
+        }
     }
 
     // Scrolls within the page. Returns false when already at that edge, so
@@ -119,9 +151,10 @@ Item {
         // parent ListView swipe between pages.
         interactive: shownW > width + 1 || shownH > height + 1
 
-        Behavior on contentY { enabled: !view.moving; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+        Behavior on contentY { enabled: !view.moving && !zoomAnim.running; NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
 
         Row {
+            id: pageRow
             x: (view.contentWidth - view.shownW) / 2
             y: (view.contentHeight - view.shownH) / 2
             layoutDirection: root.rtl ? Qt.RightToLeft : Qt.LeftToRight

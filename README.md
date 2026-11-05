@@ -13,14 +13,23 @@ is already listening on that port, Revenant uses it instead of starting one.
 
 ## Features
 
-- **Library** with a Continue reading shelf, categories, unread badges,
-  sorting and filtering, and library updates (manual or scheduled).
-- **Browse** sources by language, search one source or all of them at once,
-  and narrow results with each source's own filters (tags, sort, status...).
-  Configurable sources have a settings sheet (quality, languages, ...).
+- **Library** with a cinematic Continue reading hero that cycles through what
+  you're in the middle of, categories, unread badges and series progress,
+  sorting and filtering (cards glide to their new places), and library
+  updates (manual or scheduled).
+- **Discover**: a spotlight and Popular / Latest shelves for your pinned and
+  recent sources, one search box that asks every source at once and ranks
+  the top matches across them, and a quick-look drawer to skim titles
+  without leaving the page. Narrow a single source with its own filters
+  (tags, sort, status...); configurable sources have a settings sheet.
+- **Command palette** (Ctrl+K or /): jump to anything in your library, a
+  source or a page, or search everywhere.
 - **Extensions** from the Keiyoushi catalog: install, update, remove.
-- **Reader** with Manga (right-to-left), Comic and Webtoon modes, two-page
-  spreads, zoom, preloading, saved progress and chapter-to-chapter flow.
+- **Reader** with Manga (right-to-left), Comic and Webtoon modes, a real
+  page-curl turn you can grab and peel (or slide / fade), ambient light that
+  tints the margins with the page's colours, two-page spreads, smooth zoom,
+  page previews on the scrubber, autoplay and webtoon autoscroll, saved
+  progress, and a chapter-complete card to carry you into the next one.
 - **Downloads** for offline reading, with a live queue and per-title storage.
 - **Tracking** with AniList, MyAnimeList, Kitsu, MangaUpdates, Shikimori and
   Bangumi: link titles, and progress syncs as you finish chapters.
@@ -59,6 +68,8 @@ cmake --build build
 | Home / End | First / last page |
 | ] or N / [ or P | Next / previous chapter |
 | M | Cycle Manga (RTL) → Comic (LTR) → Webtoon |
+| K / J / L | Autoplay (autoscroll in Webtoon) / slower / faster |
+| C / , | Chapter list / reading settings |
 | 2 / O | Toggle two-page spreads / shift the pairing by one page |
 | Z, Ctrl+wheel, double-click centre | Zoom |
 | F / F11 | Fullscreen |
@@ -66,7 +77,8 @@ cmake --build build
 | Esc / Q / Backspace | Close the reader |
 
 Clicking the left or right third of a page turns it; the middle toggles the
-controls. App-wide: Ctrl+1–5 switch sections, Ctrl+, opens settings,
+controls. Drag a page sideways to peel it over by hand. App-wide: Ctrl+K or /
+opens the command palette, Ctrl+1–5 switch sections, Ctrl+, opens settings,
 Ctrl+F focuses search, Ctrl+R updates the library, Alt+← / mouse back goes back.
 
 ## Layout
@@ -79,10 +91,13 @@ src/
   keyedlistmodel.*   list model that diffs updates by key (keeps scroll position)
   oauthreceiver.*    loopback listener that completes tracker OAuth sign-in
   devscript.*        REVENANT_SCRIPT automation for screenshots and smoke tests
+shaders/
+  curl.frag          page-curl turn (compiled to .qsb at build time)
 qml/
   Api.qml            named GraphQL operations
   Theme.qml Prefs.qml Icons.qml
-  components/        design-system pieces (Cover, MangaCard, Segmented, Glow, ...)
+  components/        design-system pieces (MangaCard, TopBar, GlassPanel, CommandPalette,
+                     PeekDrawer, CoverFlight, Backdrop, Aurora, ...)
   pages/             Library, Browse, Source, Manga, History, Downloads, Extensions, Settings
   sheets/            dialogs and drawers: filters, source settings, categories, tracking
   reader/            ReaderPage, PagedView, WebtoonView, ZoomablePage
@@ -104,3 +119,15 @@ QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=rhi QSG_RHI_BACKEND=opengl \
 Fraunces and Inter (SIL OFL 1.1), Lucide icons (ISC); licence texts are in
 `assets/fonts/`. Suwayomi-Server is MPL-2.0 and is downloaded at runtime, not
 bundled.
+
+### Development helpers
+
+- `tools/make-sample-library.py` draws a library of original sample manga
+  (covers, pages, webtoon strips) into Suwayomi's Local source, and with
+  `--library` adds them to a running server's library with categories and
+  reading progress, so every screen has something real to show.
+- `tools/dev-server.sh` runs Suwayomi-Server in the foreground with
+  Revenant's settings; the app attaches to it instead of starting its own.
+- `tools/shoot.sh script.txt` runs a `REVENANT_SCRIPT` headless under Xvfb.
+- `tools/cloud-setup.sh` provisions a fresh Ubuntu container (Qt from
+  conda-forge, Xvfb, the server jar).

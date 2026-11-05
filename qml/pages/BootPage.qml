@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls.Basic
 import QtQuick.Layouts
+import QtQuick.Particles
 import Revenant
 
 // Shown until the extension server answers. On first run this covers the
@@ -27,6 +28,36 @@ Rectangle {
             NumberAnimation { from: 0.4; to: 1; duration: 2200; easing.type: Easing.InOutSine }
             NumberAnimation { from: 1; to: 0.4; duration: 2200; easing.type: Easing.InOutSine }
         }
+    }
+
+    // Ghost lights rising slowly through the dark.
+    ParticleSystem { id: wisps; running: boot.visible }
+    ImageParticle {
+        system: wisps
+        source: "qrc:///particleresources/glowdot.png"
+        color: Theme.alpha(Theme.accent, 0.7)
+        colorVariation: 0.15
+        alpha: 0.5
+        entryEffect: ImageParticle.Fade
+    }
+    Emitter {
+        system: wisps
+        anchors.bottom: parent.bottom
+        width: parent.width
+        height: 20
+        emitRate: 9
+        lifeSpan: 9000
+        lifeSpanVariation: 3000
+        size: 16
+        sizeVariation: 12
+        endSize: 4
+        velocity: AngleDirection { angle: 270; angleVariation: 10; magnitude: 55; magnitudeVariation: 30 }
+        acceleration: PointDirection { xVariation: 8 }
+    }
+    Turbulence {
+        system: wisps
+        anchors.fill: parent
+        strength: 18
     }
 
     ColumnLayout {

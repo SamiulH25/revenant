@@ -151,7 +151,7 @@ Item {
         ColumnLayout {
             id: col
             x: Theme.gutter
-            y: 40
+            y: Theme.contentTop
             width: Math.min(parent.width - Theme.gutter * 2, 860)
             spacing: 34
 
@@ -206,16 +206,42 @@ Item {
                     Range { from: 0; to: 48; stepSize: 2; suffix: " px"; value: Prefs.webtoonGap; onMoved: Prefs.webtoonGap = value }
                 }
                 Field {
+                    label: qsTr("Page turn")
+                    hint: qsTr("How pages change in paged modes. Curl turns like paper; you can also drag a page to peel it.")
+                    Segmented {
+                        value: Prefs.readerTurn
+                        model: [
+                            { value: "curl", label: qsTr("Curl") },
+                            { value: "slide", label: qsTr("Slide") },
+                            { value: "fade", label: qsTr("Fade") },
+                            { value: "none", label: qsTr("Instant") }
+                        ]
+                        onActivated: v => Prefs.readerTurn = v
+                    }
+                }
+                Field {
                     label: qsTr("Background")
+                    hint: qsTr("Ambient lights the margins with the colours of the page you're on.")
                     Segmented {
                         value: Prefs.readerBackground
                         model: [
+                            { value: "ambient", label: qsTr("Ambient"), glyph: Icons.sparkles },
                             { value: "black", label: qsTr("Black") },
                             { value: "gray", label: qsTr("Gray") },
                             { value: "white", label: qsTr("White") }
                         ]
                         onActivated: v => Prefs.readerBackground = v
                     }
+                }
+                Field {
+                    label: qsTr("Autoplay speed")
+                    hint: qsTr("Paged modes turn a page every %1 seconds while autoplay is on (K in the reader, J and L to adjust).").arg(Prefs.autoplaySeconds)
+                    Range { from: 2; to: 30; stepSize: 1; suffix: " s"; value: Prefs.autoplaySeconds; onMoved: Prefs.autoplaySeconds = value }
+                }
+                Field {
+                    label: qsTr("Autoscroll speed")
+                    hint: qsTr("Webtoon mode drifts down %1 pixels a second while autoscroll is on.").arg(Prefs.autoscrollSpeed)
+                    Range { from: 20; to: 600; stepSize: 10; suffix: " px/s"; value: Prefs.autoscrollSpeed; onMoved: Prefs.autoscrollSpeed = value }
                 }
                 Field {
                     label: qsTr("Preload pages")

@@ -14,6 +14,8 @@ Item {
     // Appending keeps the scroll position; reassigning a JS array would
     // reset the view on every page.
     KeyedListModel { id: items }
+    // The same titles as a plain list, for the peek drawer to step through.
+    property var loaded: []
     property Item searchBox
     property int nextPage: 1
     property bool hasNext: true
@@ -22,10 +24,16 @@ Item {
     property int token: 0
     property var seenIds: ({})
     property var filterChanges: []
+    // Each batch rises in; this is when the latest one landed.
+    property real batchAt: 0
+    property int batchStart: 0
     readonly property bool searching: mode === "SEARCH"
+    readonly property bool local: !!source && source.id === "0"
+    readonly property bool scrolled: grid.contentY - grid.originY > 40
 
     function reset() {
         items.clear()
+        loaded = []
         nextPage = 1
         hasNext = true
         seenIds = {}
@@ -51,7 +59,10 @@ Item {
             // Sources sometimes repeat entries across pages; keep the first.
             const fresh = result.mangas.filter(m => !seenIds[m.id])
             fresh.forEach(m => seenIds[m.id] = true)
+            batchStart = items.count
+            batchAt = Date.now()
             items.append(fresh)
+            loaded = loaded.concat(fresh)
             hasNext = result.hasNextPage && result.mangas.length > 0
             nextPage += 1
         }, searching ? filterChanges : [])
@@ -72,16 +83,17 @@ Item {
     GridView {
         id: grid
 
-        readonly property real available: width - Theme.gutter * 2 + 24
-        readonly property int columns: Math.max(2, Math.floor(available / (Prefs.coverSize + 24)))
-        readonly property real tileWidth: cellWidth - 24
+        readonly property int gap: 28
+        readonly property real available: width - Theme.gutter * 2 + gap
+        readonly property int columns: Math.max(2, Math.floor(available / (Prefs.coverSize + gap)))
+        readonly property real tileWidth: cellWidth - gap
 
         anchors.fill: parent
         leftMargin: Theme.gutter
-        rightMargin: Theme.gutter - 24
+        rightMargin: Theme.gutter - gap
         bottomMargin: 40
         cellWidth: Math.floor(available / columns)
-        cellHeight: Math.round(tileWidth * 1.5) + 76
+        cellHeight: Math.round(tileWidth * 1.5) + 84
         model: items
         boundsBehavior: Flickable.StopAtBounds
         ScrollBar.vertical: ScrollBar {}
@@ -99,42 +111,56 @@ Item {
             width: grid.width - Theme.gutter * 2
             spacing: 0
 
-            Item { Layout.preferredHeight: 26 }
+            Item { Layout.preferredHeight: Theme.contentTop - 8 }
 
             RowLayout {
                 Layout.fillWidth: true
-                spacing: 14
-                IconButton { glyph: Icons.arrowLeft; tip: qsTr("Back"); onClicked: app.back() }
-                Cover {
-                    Layout.preferredWidth: 44
-                    Layout.preferredHeight: 44
-                    radius: Theme.radiusM
-                    source: Api.cover(page.source.iconUrl)
+                spacing: 16
+                IconButton { glyph: Icons.arrowLeft; tip: qsTr("Back"); filled: true; onClicked: app.back() }
+                Item {
+                    Layout.preferredWidth: 52
+                    Layout.preferredHeight: 52
+                    Glow { anchors.centerIn: parent; width: 150; height: 150; strength: 0.18 }
+                    Cover {
+                        anchors.fill: parent
+                        visible: !page.local
+                        radius: Theme.radiusL
+                        source: Api.cover(page.source.iconUrl)
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        visible: page.local
+                        radius: Theme.radiusL
+                        color: Theme.alpha(Theme.accent, 0.14)
+                        Icon { anchors.centerIn: parent; glyph: Icons.monitor; size: 24; color: Theme.accent }
+                    }
                 }
                 ColumnLayout {
-                    spacing: 0
+                    spacing: 2
                     Text {
-                        text: page.source.name
+                        text: page.local ? qsTr("On this computer") : page.source.name
                         font.family: Theme.display
-                        font.pixelSize: 30
+                        font.pixelSize: 38
                         font.weight: Font.Medium
+                        font.letterSpacing: -0.8
                         color: Theme.text
                     }
                     Text {
-                        text: page.source.displayName
-                        font.pixelSize: 12
+                        text: page.local ? qsTr("Manga in Revenant's local folder") : page.source.displayName
+                        font.pixelSize: 13
                         color: Theme.textFaint
                     }
                 }
                 Item { Layout.fillWidth: true }
             }
 
-            Item { Layout.preferredHeight: 22 }
+            Item { Layout.preferredHeight: 24 }
 
             RowLayout {
                 Layout.fillWidth: true
                 spacing: 12
                 Segmented {
+                    implicitHeight: 40
                     value: page.mode
                     model: {
                         const m = [{ value: "POPULAR", label: qsTr("Popular"), glyph: Icons.flame }]
@@ -162,6 +188,8 @@ Item {
                 }
                 IconButton {
                     visible: page.source.isConfigurable
+                    implicitWidth: 40
+                    implicitHeight: 40
                     glyph: Icons.settings
                     tip: qsTr("Source settings")
                     filled: true
@@ -172,7 +200,7 @@ Item {
                     Component.onCompleted: page.searchBox = this
                     Layout.preferredWidth: 340
                     text: page.initialQuery
-                    placeholderText: qsTr("Search %1").arg(page.source.name)
+                    placeholderText: qsTr("Search %1").arg(page.local ? qsTr("this computer") : page.source.name)
                     onAccepted: {
                         page.query = text.trim()
                         page.mode = page.query || page.filterChanges.length ? "SEARCH" : "POPULAR"
@@ -181,17 +209,22 @@ Item {
                 }
             }
 
-            Item { Layout.preferredHeight: 24 }
+            Item { Layout.preferredHeight: 28 }
         }
 
         delegate: Item {
+            id: cell
             required property var modelData
+            required property int index
             width: grid.cellWidth
             height: grid.cellHeight
             MangaCard {
+                id: tile
                 width: grid.tileWidth
-                manga: parent.modelData
-                onClicked: app.openManga(parent.modelData)
+                manga: cell.modelData
+                enterDelay: Date.now() - page.batchAt < 1200 && cell.index >= page.batchStart
+                            ? Math.min(cell.index - page.batchStart, 24) * Theme.stagger : -1
+                onClicked: app.peekManga(cell.modelData, tile, page.loaded)
             }
         }
 
@@ -213,11 +246,23 @@ Item {
         }
     }
 
-    Spinner {
-        anchors.centerIn: parent
-        anchors.verticalCenterOffset: 80
-        size: 28
+    Grid {
+        // Skeleton tiles while the first page loads.
+        x: Theme.gutter
+        y: Theme.contentTop + 170
         visible: page.loading && items.count === 0
+        columns: grid.columns
+        columnSpacing: grid.gap
+        rowSpacing: 30
+        Repeater {
+            model: grid.columns * 2
+            Column {
+                required property int index
+                spacing: 10
+                Skeleton { width: grid.tileWidth; height: grid.tileWidth * 1.5; delay: index * 70 }
+                Skeleton { width: grid.tileWidth * 0.75; height: 12; radius: 6; delay: index * 70 }
+            }
+        }
     }
 
     EmptyState {
@@ -226,7 +271,7 @@ Item {
         visible: !page.loading && items.count === 0
         glyph: page.error ? Icons.circleAlert : Icons.search
         title: page.error ? qsTr("The source didn't answer")
-             : page.searching && !page.query && !page.filterChanges.length ? qsTr("Search %1").arg(page.source.name)
+             : page.searching && !page.query && !page.filterChanges.length ? qsTr("Search %1").arg(page.local ? qsTr("this computer") : page.source.name)
              : qsTr("Nothing here")
         body: page.error ? page.error : ""
         PillButton {

@@ -51,10 +51,19 @@ QtObject {
             if (!cb)
                 return
             if (error)
-                cb(error, null)
+                cb(cleanError(error), null)
             else
                 cb("", pick ? pick(data) : data)
         })
+    }
+
+    // Server errors arrive as "Exception while fetching data (/op) : Some.Exception: text"
+    // followed by a JVM stack trace. Keep the human part.
+    function cleanError(error) {
+        let s = String(error).split("\n")[0].trim()
+        s = s.replace(/^Exception while fetching data \([^)]*\)\s*:\s*/, "")
+        s = s.replace(/^([A-Za-z_$][\w$]*\.)+[A-Za-z_$][\w$]*(Exception|Error):\s*/, "")
+        return s.length > 180 ? s.slice(0, 177) + "…" : (s || qsTr("Something went wrong"))
     }
 
     // "1 chapter" / "3 chapters" without a translation catalogue.
@@ -69,7 +78,10 @@ QtObject {
         run("{ extensionStores { nodes { indexUrl } } }", {}, function (error, data) {
             if (error)
                 return cb(error)
-            const known = data.extensionStores.nodes.some(s => s.indexUrl === api.keiyoushiIndex)
+            // The same index is also served from raw.githubusercontent.com; either
+            // form already registered means there's nothing to add.
+            const known = data.extensionStores.nodes.some(s => s.indexUrl === api.keiyoushiIndex
+                || /keiyoushi\/extensions\/(raw\/)?repo\/index\.pb$/.test(s.indexUrl))
             if (known)
                 return refreshExtensions(cb)
             run("mutation($u: String!) { addExtensionStore(input: { indexUrl: $u }) { extensionStore { name } } }",
@@ -103,9 +115,10 @@ QtObject {
 
     // --- Sources ----------------------------------------------------------
 
-    function sources(cb) {
+    // includeLocal keeps Suwayomi's Local source (id 0: manga in a folder on disk).
+    function sources(cb, includeLocal) {
         run("{ sources(order: [{ by: NAME }]) { nodes { id name displayName lang iconUrl supportsLatest isConfigurable contentWarning extension { pkgName } } } }",
-            {}, cb, d => d.sources.nodes.filter(s => s.id !== "0"))
+            {}, cb, d => d.sources.nodes.filter(s => includeLocal || s.id !== "0"))
     }
 
     // type: "POPULAR" | "LATEST" | "SEARCH". filters: [FilterChangeInput]
@@ -164,7 +177,10 @@ QtObject {
     }
 
     function library(cb) {
-        run("{ mangas(condition: { inLibrary: true }) { nodes { " + mangaCard + " inLibraryAt lastReadChapter { lastReadAt } latestUploadedChapter { uploadDate } source { displayName } categories { nodes { id } } } } }",
+        run("{ mangas(condition: { inLibrary: true }) { nodes { " + mangaCard + " author description genre inLibraryAt chapters { totalCount }"
+            + " lastReadChapter { id name chapterNumber lastReadAt isRead lastPageRead pageCount }"
+            + " firstUnreadChapter { id name chapterNumber lastPageRead pageCount }"
+            + " latestUploadedChapter { uploadDate } source { displayName } categories { nodes { id } } } } }",
             {}, cb, d => d.mangas.nodes)
     }
 

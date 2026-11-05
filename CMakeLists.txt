@@ -6,7 +6,7 @@ include(GNUInstallDirs)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Network Quick QuickControls2 Concurrent)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Network Quick QuickControls2 Concurrent ShaderTools)
 
 qt_standard_project_setup(REQUIRES 6.5)
 qt_policy(SET QTP0004 NEW)
@@ -30,7 +30,15 @@ set(QML_FILES
     qml/components/Icon.qml
     qml/components/IconButton.qml
     qml/components/PillButton.qml
-    qml/components/NavRail.qml
+    qml/components/TopBar.qml
+    qml/components/GlassPanel.qml
+    qml/components/CommandPalette.qml
+    qml/components/CoverFlight.qml
+    qml/components/Aurora.qml
+    qml/components/PeekDrawer.qml
+    qml/components/Backdrop.qml
+    qml/components/Reveal.qml
+    qml/components/Skeleton.qml
     qml/components/Cover.qml
     qml/components/MangaCard.qml
     qml/components/SearchField.qml
@@ -81,6 +89,14 @@ qt_add_qml_module(revenant
         assets/fonts/Inter.ttf
         assets/fonts/lucide.ttf
         assets/icons/revenant.svg
+)
+
+# Shaders are compiled to .qsb at build time and served from the module's
+# resources (qrc:/qt/qml/Revenant/shaders/...).
+qt_add_shaders(revenant "revenant_shaders"
+    PREFIX "/qt/qml/Revenant"
+    FILES
+        shaders/curl.frag
 )
 
 target_include_directories(revenant PRIVATE src)
