@@ -26,6 +26,15 @@ Rectangle {
     // For the chapter-complete card.
     property real chapterStartedAt: 0
     property int furthestPage: 0
+    // Reading mode is per series, stored on the server under this key.
+    readonly property string modeKey: "revenant.readerMode"
+    // No mode saved for the series yet: look at the first pages and switch
+    // to webtoon if they're long strips.
+    property bool detectStrip: false
+    // Webtoon mode reads chapters end to end: [{ chapter, pages }].
+    property var segments: []
+    property bool appending: false
+    readonly property var stripNext: segments.length ? chapterAfter(segments[segments.length - 1].chapter) : null
 
     readonly property int chapterIndex: chapter ? chapters.findIndex(c => c.id === chapter.id) : -1
     readonly property var nextChapter: chapterIndex > 0 ? chapters[chapterIndex - 1] : null
@@ -47,7 +56,32 @@ Rectangle {
             ImageCache.accent(Api.coverKey(m.thumbnailUrl, m.thumbnailUrlLastFetched), c => { if (c) reader.tint = Theme.vivid(c) })
         forceActiveFocus()
         entrance.restart()
-        loadChapter(ch, false)
+        segments = []
+        detectStrip = false
+        mode = Prefs.readerMode
+        Api.mangaMeta(m.id, function (err, meta) {
+            const saved = err ? "" : (meta[reader.modeKey] || "")
+            if (["paged-rtl", "paged-ltr", "webtoon"].indexOf(saved) >= 0)
+                reader.mode = saved
+            else if (reader.looksLikeStrip(m))
+                reader.mode = "webtoon"
+            else
+                reader.detectStrip = reader.mode !== "webtoon"
+            reader.loadChapter(ch, false)
+        })
+    }
+
+    // Sources that tag their long-strip series say so in the genres.
+    function looksLikeStrip(m) {
+        const genres = (m && m.genre ? m.genre : []).map(g => String(g).toLowerCase().trim())
+        return genres.some(g => g === "webtoon" || g === "webtoons" || g === "long strip" || g === "long-strip"
+                                || g === "longstrip" || g === "vertical" || g === "vertical scroll")
+    }
+
+    // The chapter that follows ch in reading order (chapters are newest first).
+    function chapterAfter(ch) {
+        const i = chapters.findIndex(c => c.id === ch.id)
+        return i > 0 ? chapters[i - 1] : null
     }
 
     function close() {
@@ -81,6 +115,8 @@ Rectangle {
             const start = fromEnd ? pages.length - 1
                         : ch.isRead ? 0
                         : Math.max(0, Math.min(ch.lastPageRead, pages.length - 1))
+            if (!paged)
+                restartStrip()
             currentPage = start
             lastSavedPage = start
             furthestPage = start
@@ -133,11 +169,6 @@ Rectangle {
             if (nextChapter) goNextChapter()
             return
         }
-        // Webtoon autoscroll flows straight on into the next chapter.
-        if (!paged && autoplay && nextChapter) {
-            goNextChapter()
-            return
-        }
         autoplay = false
         transition = "next"
         saveProgress()
@@ -153,11 +184,84 @@ Rectangle {
         showChrome()
     }
 
+    // Changes the mode for this series (the default for others stays put).
     function setMode(next) {
         const page = currentPage
+        detectStrip = false
+        if (next === "webtoon" && mode !== "webtoon")
+            restartStrip()
         mode = next
-        Prefs.readerMode = next
+        if (manga)
+            Api.setMangaMeta(manga.id, modeKey, next)
         Qt.callLater(() => { if (view) view.goTo(page, false) })
+    }
+
+    // Starts the webtoon strip at the current chapter, keeping whatever of
+    // it is already loaded (so jumping to an appended chapter is seamless).
+    function restartStrip() {
+        if (!chapter || !pages.length)
+            return
+        const at = segments.findIndex(s => s.chapter.id === chapter.id)
+        segments = at >= 0 ? segments.slice(at) : [{ chapter: chapter, pages: pages }]
+    }
+
+    // Fetches the chapter after the strip's last one and joins it on.
+    function appendNext() {
+        const nxt = stripNext
+        if (appending || paged || !nxt)
+            return
+        appending = true
+        Api.pages(nxt.id, function (err, result) {
+            appending = false
+            if (err)
+                return app.toast(err, "error")
+            const tail = segments.length ? chapterAfter(segments[segments.length - 1].chapter) : null
+            if (paged || !tail || tail.id !== nxt.id)
+                return
+            const base = ServerManager.baseUrl.toString()
+            patchChapter(result.chapter)
+            let segs = segments.concat([{ chapter: Object.assign({}, nxt, result.chapter), pages: result.pages.map(p => base + p) }])
+            // Keep the strip bounded: drop chapters well behind the reader.
+            while (segs.length > 4 && segs[0].chapter.id !== reader.chapter.id)
+                segs = segs.slice(1)
+            segments = segs
+        })
+    }
+
+    // The strip scrolled to (chapterId, page). Crossing into another
+    // chapter makes it the current one; leaving one forward finishes it.
+    function onStripPosition(chapterId, page) {
+        if (!chapter)
+            return
+        if (chapterId === chapter.id) {
+            currentPage = page
+            return
+        }
+        const seg = segments.find(s => s.chapter.id === chapterId)
+        if (!seg)
+            return
+        const forward = chapters.findIndex(c => c.id === chapterId) < chapterIndex
+        if (forward)
+            currentPage = pages.length - 1
+        saveProgress()
+        const ch = chapters.find(c => c.id === chapterId) || seg.chapter
+        chapter = ch
+        pages = seg.pages
+        lastSavedPage = -1
+        lastSavedRead = ch.isRead
+        chapterStartedAt = Date.now()
+        furthestPage = page
+        currentPage = page
+    }
+
+    function noteShape(ratio) {
+        if (!detectStrip)
+            return
+        detectStrip = false
+        if (ratio >= 2.0 && paged) {
+            setMode("webtoon")
+            hint.show(qsTr("Long strip detected · reading as a webtoon (M to change)"), Icons.rows3)
+        }
     }
     function cycleMode() {
         const modes = ["paged-rtl", "paged-ltr", "webtoon"]
@@ -312,6 +416,23 @@ Rectangle {
             id: viewLoader
             anchors.fill: parent
             sourceComponent: reader.paged ? pagedComponent : webtoonComponent
+            // While deciding whether this is a long strip, don't flash it paged.
+            opacity: reader.detectStrip && reader.pages.length ? 0 : 1
+            Behavior on opacity { NumberAnimation { duration: Theme.normal } }
+        }
+
+        Image {
+            // Reads the shape of an early page (the first is often a cover).
+            visible: false
+            asynchronous: true
+            sourceSize.width: 120
+            source: reader.detectStrip && reader.paged && reader.pages.length ? reader.pages[Math.min(1, reader.pages.length - 1)] : ""
+            onStatusChanged: {
+                if (status === Image.Ready)
+                    reader.noteShape(implicitHeight / Math.max(1, implicitWidth))
+                else if (status === Image.Error)
+                    reader.detectStrip = false
+            }
         }
     }
 
@@ -333,11 +454,15 @@ Rectangle {
     Component {
         id: webtoonComponent
         WebtoonView {
-            pages: reader.pages
-            hasNextChapter: reader.nextChapter !== null
+            segments: reader.segments
+            currentChapterId: reader.chapter ? reader.chapter.id : null
+            hasMore: reader.stripNext !== null
+            loadingMore: reader.appending
+            tint: reader.tint
             autoscroll: reader.autoplay && !reader.transition
-            onCurrentIndexChanged: reader.currentPage = currentIndex
-            onPastEnd: reader.nextChapter && !reader.autoplay ? reader.goNextChapter() : reader.onPastEnd()
+            onPosition: (chapterId, page) => reader.onStripPosition(chapterId, page)
+            onNearEnd: reader.appendNext()
+            onPastEnd: reader.onPastEnd()
             onPastStart: reader.onPastStart()
             onToggleChrome: reader.chromeVisible ? (reader.chromeVisible = false) : reader.showChrome()
         }
@@ -896,7 +1021,7 @@ Rectangle {
 
                     ColumnLayout {
                         spacing: 8
-                        SettingLabel { text: qsTr("READING MODE  ·  M") }
+                        SettingLabel { text: qsTr("READING MODE FOR THIS SERIES  ·  M") }
                         Segmented {
                             value: reader.mode
                             model: [

@@ -25,6 +25,11 @@ is already listening on that port, Revenant uses it instead of starting one.
 - **Command palette** (Ctrl+K or /): jump to anything in your library, a
   source or a page, or search everywhere.
 - **Extensions** from the Keiyoushi catalog: install, update, remove.
+- **Webtoons** read as one continuous strip: chapters join end to end as you
+  scroll, each finished chapter is marked read on the way, and resuming
+  lands exactly where you left off. Long-strip series are recognised (from
+  their tags or the shape of their pages) and open in Webtoon mode; the
+  reading mode is remembered per series, on the server.
 - **Reader** with Manga (right-to-left), Comic and Webtoon modes, a real
   page-curl turn you can grab and peel (or slide / fade), ambient light that
   tints the margins with the page's colours, two-page spreads, smooth zoom,
@@ -67,11 +72,11 @@ cmake --build build
 | Space, ↓, PgDn / Shift+Space, ↑, PgUp | Forward / back (scrolls tall pages first) |
 | Home / End | First / last page |
 | ] or N / [ or P | Next / previous chapter |
-| M | Cycle Manga (RTL) → Comic (LTR) → Webtoon |
+| M | Cycle Manga (RTL) → Comic (LTR) → Webtoon, for this series |
 | K / J / L | Autoplay (autoscroll in Webtoon) / slower / faster |
 | C / , | Chapter list / reading settings |
 | 2 / O | Toggle two-page spreads / shift the pairing by one page |
-| Z, Ctrl+wheel, double-click centre | Zoom |
+| Z, Ctrl+wheel, double-click centre | Zoom (Webtoon: fill the window / widen or narrow the strip) |
 | F / F11 | Fullscreen |
 | H / Tab | Toggle the reader controls |
 | Esc / Q / Backspace | Close the reader |

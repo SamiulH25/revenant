@@ -171,6 +171,22 @@ QtObject {
             })
     }
 
+    // Per-series key/value settings stored on the server (so they follow the
+    // library to other clients). cb gets { key: value }.
+    function mangaMeta(id, cb) {
+        run("query($id: Int!) { manga(id: $id) { meta { key value } } }", { id: id }, cb, d => {
+            const out = {}
+            for (const m of d.manga.meta)
+                out[m.key] = m.value
+            return out
+        })
+    }
+
+    function setMangaMeta(id, key, value, cb) {
+        run("mutation($m: MangaMetaTypeInput!) { setMangaMeta(input: { meta: $m }) { meta { key value } } }",
+            { m: { mangaId: id, key: key, value: String(value) } }, cb)
+    }
+
     function setInLibrary(id, inLibrary, cb) {
         run("mutation($id: Int!, $v: Boolean!) { updateManga(input: { id: $id, patch: { inLibrary: $v } }) { manga { id inLibrary } } }",
             { id: id, v: inLibrary }, cb, d => d.updateManga.manga)

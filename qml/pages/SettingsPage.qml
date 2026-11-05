@@ -161,7 +161,7 @@ Item {
                 title: qsTr("Reader")
                 Field {
                     label: qsTr("Default reading mode")
-                    hint: qsTr("Change it any time in the reader with M.")
+                    hint: qsTr("For series you haven't picked a mode for. Long-strip webtoons are spotted and read as webtoons automatically; M in the reader changes the mode for that series.")
                     Segmented {
                         value: Prefs.readerMode
                         model: [
