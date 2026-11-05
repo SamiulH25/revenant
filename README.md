@@ -36,7 +36,7 @@ is already listening on that port, Revenant uses it instead of starting one.
 
 ## Requirements
 
-- Qt 6.5+ (Base, Declarative, ShaderTools, ImageFormats for WebP covers)
+- Qt 6.9+ (Base, Declarative, ShaderTools, ImageFormats for WebP covers)
 - CMake 3.21+, Ninja, a C++20 compiler
 - Java 21+ for the server (`java` on `PATH`, `JAVA_HOME`, or `REVENANT_JAVA`)
 

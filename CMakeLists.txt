@@ -6,9 +6,9 @@ include(GNUInstallDirs)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Network Quick QuickControls2 Concurrent ShaderTools)
+find_package(Qt6 6.9 REQUIRED COMPONENTS Core Gui Network Quick QuickControls2 Concurrent ShaderTools)
 
-qt_standard_project_setup(REQUIRES 6.5)
+qt_standard_project_setup(REQUIRES 6.9)
 qt_policy(SET QTP0004 NEW)
 
 qt_add_executable(revenant
