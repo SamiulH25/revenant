@@ -1,0 +1,6 @@
+wait 60000
+eval Api.run("mutation($u: String!) { addExtensionStore(input: { indexUrl: $u }) { extensionStore { name } } }", { u: "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.pb" }, function (e) { console.log("add store:", e || "ok") })
+wait 15000
+eval Api.refreshExtensions(function (e, d) { console.log("refresh:", e || (d.length + " extensions")) })
+wait 20000
+quit
